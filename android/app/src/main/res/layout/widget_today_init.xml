@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="12dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="今日课程 · 共4节 · 剩3节"
+        android:textColor="#0f766e" android:textSize="13sp" android:textStyle="bold"/>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="信息技术 · 9月2日 周三"
+        android:textColor="#8a8478" android:textSize="10sp"/>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp" android:textColor="#292524" android:textSize="14sp"
+        android:lineSpacingExtra="4dp"
+        android:text="10:25  四.6&#10;11:20  六.3  ← 进行中&#10;14:00  六.2&#10;14:55  六.6&#10;☐ 批改作业&#10;「日程」下午3点教研会议"/>
+</LinearLayout>

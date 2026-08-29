@@ -365,3 +365,13 @@ APK 深度静态分析（strings/classes 全量）确认其日程表模块实体
 - 两者共用同一数据源（widget_week），点击均通过 PendingIntent 打开 MainActivity
 - DateWidgetProvider + widget_date.xml + widget_date_info.xml + Manifest 注册
 - 产物：我的课表-v1.5.apk（含 @capacitor/preferences，双组件）
+
+## 2026-08-30 第 32 轮：小组件预览 + 实时刷新 v1.6
+
+用户反馈：①添加组件时盲选看不到内容预览 ②App 内改任务/调课后桌面组件不实时更新（30分钟才刷）。
+
+修复：
+- 预览：新增 widget_today_init/widget_date_init 示例布局（预置"共4节/进行中/任务"等样例文字），initialLayout 与 previewLayout(Android 12+) 均指向示例布局，选择器里所见即所得
+- 实时刷新：新增本地插件 WidgetSyncPlugin（@CapacitorPlugin name=WidgetSync，refresh() 重绘两种组件），MainActivity onCreate 注册；JS writeWidget 写完数据后调用 WidgetSync.refresh()——调课/勾任务/导入后桌面立即更新
+- 构建注意：@CapacitorPlugin 注解在 com.getcapacitor.annotation 包（无 com.getcapacitor.CapacitorPlugin 类）；本地插件用 BridgeActivity.registerPlugin(Class) 注册
+产物：我的课表-v1.6.apk

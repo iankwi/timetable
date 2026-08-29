@@ -193,6 +193,8 @@ function writeWidget(){
     const payload = { today: dayPayload(d0), tomorrow: dayPayload(d1), teacher: DATA.teacher||DATA.subject||"我的课表" };
     const P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences;
     if(P && P.set) P.set({ key:"widget_week", value: JSON.stringify(payload) });
+    const W = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.WidgetSync;
+    if(W && W.refresh) W.refresh();          // 数据变化立即重绘桌面组件
   }catch(e){}
 }
 setInterval(function(){ writeWidget(); }, 30*60*1000);   // 每30分钟刷新（跨天自动更新）
