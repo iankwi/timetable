@@ -375,3 +375,13 @@ APK 深度静态分析（strings/classes 全量）确认其日程表模块实体
 - 实时刷新：新增本地插件 WidgetSyncPlugin（@CapacitorPlugin name=WidgetSync，refresh() 重绘两种组件），MainActivity onCreate 注册；JS writeWidget 写完数据后调用 WidgetSync.refresh()——调课/勾任务/导入后桌面立即更新
 - 构建注意：@CapacitorPlugin 注解在 com.getcapacitor.annotation 包（无 com.getcapacitor.CapacitorPlugin 类）；本地插件用 BridgeActivity.registerPlugin(Class) 注册
 产物：我的课表-v1.6.apk
+
+## 2026-08-30 第 33 轮：上课提醒通知 v1.7
+
+用户确认设计：每天只提醒当天第一节课，通知栏形式。
+- 插件：@capacitor/local-notifications（底层 AlarmManager，声明 SCHEDULE_EXACT_ALARM/POST_NOTIFICATIONS）
+- 设置面板新增 ③ 上课提醒：开关 + 提前量（5/10/15/20/30分钟）+ 保存（首次开启请求通知权限）
+- scheduleReminders：取消旧排程 → 未来7天每天取最早节次，排"第X节 HH:MM 班级，N分钟后上课"通知；时间已过则跳过；数据变化后重排（调课/假日自动跟随）；App 启动 2 秒后重排一次
+- 通知点开 → 打开App（插件默认行为）
+- 产物：我的课表-v1.7.apk
+待真机验证：vivo 系统的通知授权弹窗与通知到达（部分国产ROM需允许自启动/后台弹出）。

@@ -170,6 +170,37 @@ function saveAll(){ localStorage.setItem("tt2_data", JSON.stringify(DATA));
                     localStorage.setItem("tt2_range", JSON.stringify(RANGES));
                     writeWidget(); }
 
+/* 上课提醒：每天只提醒当天第一节课 */
+function remindCfg(){ try{ return JSON.parse(localStorage.getItem("tt2_remind")) || {enabled:false, minutes:10}; }catch(e){ return {enabled:false, minutes:10}; } }
+async function scheduleReminders(){
+  const cfg = remindCfg();
+  const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+  if(!LN || !LN.schedule) return;
+  const old = []; for(let i=0;i<14;i++) old.push({id:1000+i});
+  try{ await LN.cancel({ notifications: old }); }catch(e){}
+  if(!cfg.enabled) return;
+  try{
+    const pm = await LN.checkPermissions();
+    if(pm.display !== "granted"){
+      const r = await LN.requestPermissions();
+      if(r.display !== "granted"){ toast("未获通知权限，上课提醒未生效"); return; }
+    }
+    for(let i=0;i<7;i++){
+      const d = new Date(); d.setDate(d.getDate()+i);
+      const ls = lessonsOn(d).sort((a,b)=>a.p-b.p);
+      if(!ls.length) continue;
+      const first = ls[0];
+      const t = DATA.periods[first.p][0];
+      const hm = t.split(":").map(Number);
+      const at = new Date(d); at.setHours(hm[0], hm[1]-cfg.minutes, 0, 0);
+      if(at <= new Date()) continue;
+      await LN.schedule({ notifications:[{ id:1000+i, title:"上课提醒",
+        body:"第"+first.p+"节 "+t+" "+first.cls+"，"+cfg.minutes+"分钟后上课",
+        schedule:{ at: at, allowWhileIdle: true } }] });
+    }
+  }catch(e){}
+}
+
 /* 桌面小组件数据：今天+明天（跨天自动接续），含课程/任务/日程/统计 */
 function writeWidget(){
   try{
@@ -420,6 +451,17 @@ function openSettingsSheet(){
     <div class="note" style="font-size:11px;color:#999;margin:4px 0 8px">↑ 只清 待办/日程/区间/调课记录，课程表保留</div>
     <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#fdeaea;color:var(--amber);font-weight:600" onclick="doClearTimetable()">清除课表数据</button></div>
     <div class="note" style="font-size:11px;color:#999;margin:4px 0 8px">↑ 只清 课程表（回到待导入状态），个人记录保留。可随后重新导入新学期课表</div>
+    <div class="note" style="font-size:11px;color:#999;margin:16px 0 8px">③ 上课提醒（每天只提醒当天第一节课）</div>
+    <label class="todo" style="margin:0 0 8px"><input type="checkbox" id="rmEnabled" ${remindCfg().enabled?"checked":""}>
+      <span>开启上课提醒（首次开启会请求通知权限）</span></label>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <span style="font-size:13px;color:#66707a">提前</span>
+      <select id="rmMinutes" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px">
+        ${[5,10,15,20,30].map(function(v){ return '<option value="'+v+'"'+(remindCfg().minutes==v?" selected":"")+'>'+v+' 分钟</option>'; }).join("")}
+      </select>
+      <span style="font-size:13px;color:#66707a">提醒</span>
+    </div>
+    <div class="row"><button class="b-ok" style="flex:1" onclick="saveRemind()">保存提醒设置</button></div>
     <div class="row"><button class="b-cancel" style="flex:1" onclick="this.closest('.mask').remove()">关闭</button></div>
     <div class="note" style="font-size:11px;color:#999;margin-top:10px">我的课表 v1.3 · 数据仅保存在本机</div></div>`;
   document.body.appendChild(m);
@@ -777,6 +819,7 @@ document.getElementById("tabMonth").onclick = ()=>setTab("month");
 function isBlank(){ return !DATA.lessons.length; }
 setTab("today");
 if(isBlank()){ setTimeout(openImportSheet, 400); }
+setTimeout(function(){ scheduleReminders(); }, 2000);
 </script>
 </body>
 </html>
