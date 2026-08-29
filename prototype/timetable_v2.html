@@ -167,8 +167,9 @@ function buildEvents(info){
                   classNames:"hol", editable:false });
     lessonsOn(d).forEach(l=>{
       const [sh,sm] = DATA.periods[l.p][0].split(":"), [eh,em] = DATA.periods[l.p][1].split(":");
-      evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls}${l.adj?"（调）":""} ${l.p}`,
+      evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls}${l.adj?"（调）":""} ${DATA.periods[l.p][0]}`,
         start:`${ds}T${sh}:${sm}:00`, end:`${ds}T${eh}:${em}:00`,
+        extendedProps:{ cls:l.cls, p:l.p, adj:!!l.adj },
         classNames: l.adj ? "adj" : "les" });
     });
   }
@@ -180,10 +181,10 @@ let calendar = null, calView = "timeGridWeek";
 function refreshCal(){ if(calendar) calendar.refetchEvents(); renderTodayIfVisible(); }
 function renderTodayIfVisible(){ if(tab=="today") renderToday(); }
 
-function makeCalendar(initialView){
+function makeCalendar(){
   const el = document.getElementById("cal");
   calendar = new FullCalendar.Calendar(el, {
-    initialView: initialView,
+    initialView: "timeGridWeek",
     locale: "zh-cn",
     height: "auto",
     firstDay: 1,
@@ -193,6 +194,7 @@ function makeCalendar(initialView){
     slotMinTime: "08:00", slotMaxTime: "17:00",
     editable: true,           // 原生触屏/鼠标拖拽
     eventStartEditable: true,
+    durationEditable: false,   // 禁止拉伸改时长（防误触）
     displayEventTime: false,
     dayMaxEventRows: 3,
     eventContent: (arg) => {
@@ -204,12 +206,26 @@ function makeCalendar(initialView){
     },
     events: (info, ok) => ok(buildEvents(info)),
     eventDrop: (info) => handleDrop(info),
+    eventClick: (info) => {
+      const ds = dstr(info.event.start), t = `${String(info.event.start.getHours()).padStart(2,"0")}:${String(info.event.start.getMinutes()).padStart(2,"0")}`;
+      const p = Object.keys(DATA.periods).find(k=>DATA.periods[k][0]==t);
+      const adj = ADJ.find(x=>x.toDate==ds && x.toP==p);
+      if(!adj) return;
+      const m = document.createElement("div"); m.className = "mask";
+      m.innerHTML = `<div class="sheet"><h3>临时安排</h3>
+        <div class="desc"><b>${adj.cls}</b>：${shortDs(adj.fromDate)} 第${adj.fromP}节 临时调到 ${shortDs(ds)} 第${p}节</div>
+        <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">关闭</button></div>
+        <div class="row"><button class="b-amber" id="undoAdj">撤销（恢复原课表）</button></div></div>`;
+      document.body.appendChild(m);
+      m.querySelector("#undoAdj").onclick = ()=>{
+        ADJ = ADJ.filter(x=>x!==adj); saveAll(); m.remove(); refreshCal(); toast("已恢复原课表");
+      };
+    },
     datesSet: (s) => { document.getElementById("headSub").textContent =
       dstr(s.start) + " 至 " + dstr(new Date(s.end.getTime()-86400000)) +
       " · 拖动课程块可调课"; }
   });
   calendar.render();
-  setTimeout(()=>{ try{ calendar.changeView(initialView); }catch(e){} }, 0); // 保证视图与所选标签一致
 }
 
 /* 拖拽落点 → 临时 / 整学期 */
@@ -221,7 +237,7 @@ function handleDrop(info){
   const pByTime = t => Object.keys(DATA.periods).find(k=>DATA.periods[k][0]==t);
   const fp = pByTime(fromTime), tp = pByTime(toTime);
   if(!fp || !tp){ toast("时间不对应任何节次，已还原"); info.revert(); return; }
-  const cls = (info.event.title.match(/^(.+) 第\d+节$/)||[])[1] || "";
+  const cls = info.event.extendedProps.cls || "";
   const m = document.createElement("div");
   m.className = "mask"; 
   m.innerHTML = `<div class="sheet"><h3>调课</h3>
@@ -270,7 +286,7 @@ function renderToday(){
       ${now>=s&&now<e?"<span class='tag'>进行中</span>":""}</div>`;
   });
   h += "<div class='sect'>今日待办</div><div id='todayTodos'></div></div>";
-  main.innerHTML = h;
+  document.getElementById("todayHost").innerHTML = h;
   const ts = TODOS.filter(t=>t.date==ds);
   document.getElementById("todayTodos").innerHTML = ts.length ? ts.map(t=>`<div class="todo${t.done?" done":""}">
     <input type="checkbox" aria-label="完成" ${t.done?"checked":""} onchange="toggleTodo(${t.id})">
@@ -306,13 +322,19 @@ function addTodo(){
 const main = document.getElementById("main");
 const today = new Date();
 let tab = "today";
+main.innerHTML = `<div id="todayHost" style="display:none"></div><div id="cal" style="display:none"></div>`;
 function setTab(t){
   ["Today","Week","Month"].forEach(x=>document.getElementById("tab"+x).classList.toggle("on", t.toLowerCase()==x.toLowerCase()));
-  if(t=="today"){ main.innerHTML = "<div id='todayHost'></div>"; renderToday(); }
-  else{
+  if(t=="today"){
+    renderToday();
+    document.getElementById("todayHost").style.display = "";
+    document.getElementById("cal").style.display = "none";
+  }else{
     const view = t=="week" ? "timeGridWeek" : "dayGridMonth";
-    main.innerHTML = "<div id='cal'></div>";
-    calendar = null; makeCalendar(view);
+    if(!calendar) makeCalendar();          // 全程只创建一次，日期由 FullCalendar 自己保持
+    calendar.changeView(view);
+    document.getElementById("todayHost").style.display = "none";
+    document.getElementById("cal").style.display = "";
   }
   tab = t;
 }

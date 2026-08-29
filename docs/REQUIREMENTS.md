@@ -79,6 +79,7 @@
 ## 6. 技术选型记录（正式版）
 
 推荐路线：**Flutter 自研**，纯本地无后端
+- 已决策（2026-08-30）：原型层采用 FullCalendar（MIT），拖拽/月周视图由其负责
 - 周课表视图：JonasWanke/timetable 或 werner-scholtz/kalender
 - 月/周切换：kongpf8848/smart_calendar 或 r_calendar
 - 日期区间选择（R8 用）：calendar_date_picker2
@@ -101,6 +102,7 @@
 2. 新产生的需求澄清写入 REQUIREMENTS.md §2，新决策写入 §3 或对应章节，未做的写入 §9 开放问题
 3. 每轮修复完成后 git commit（信息写明改了什么），若远程可达则 push 到 origin main
 4. 新会话开始时先读本文件与 PROCESS_LOG.md 恢复上下文
+5. 遇到新功能/优化需求，先搜索 GitHub 现成方案（库/组件/成品）再动手实现，避免重复造轮子；无明显现成方案或引入成本高于自写时才自研
 
 ## 9. 开放问题 / 下一步
 
