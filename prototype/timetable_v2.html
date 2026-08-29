@@ -32,10 +32,11 @@
   .fc-theme-standard td, .fc-theme-standard th, .fc-theme-standard .fc-scrollgrid { border-color:#eee; }
   .fc .fc-timegrid-slot { height:26px; }
   .fc-event { border:none; border-radius:5px; font-size:11px; padding:1px 3px; }
+  .fc-daygrid-event { margin:1px 0; }
   .fc-event.les { background:var(--green-l); color:var(--green); border-left:3px solid var(--green); }
   .fc-event.les .fc-event-main { color:var(--green); font-weight:600; }
-  .fc-event.adj { background:#fff4e0; border-left:3px solid var(--amber); }
-  .fc-event.adj .fc-event-main { color:var(--amber); font-weight:600; }
+  .fc-event.adj { background:var(--green-l); border-left:3px solid var(--amber); }
+  .fc-event.adj .fc-event-main { color:var(--green); font-weight:600; }
   .fc-event.hol { background:#ffe3e3; color:#c0392b; font-weight:600; }
   .fc-day-sat .fc-daygrid-day-number, .fc-day-sun .fc-daygrid-day-number { color:#c0392b; }
 
@@ -166,7 +167,7 @@ function buildEvents(info){
                   classNames:"hol", editable:false });
     lessonsOn(d).forEach(l=>{
       const [sh,sm] = DATA.periods[l.p][0].split(":"), [eh,em] = DATA.periods[l.p][1].split(":");
-      evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls} 第${l.p}节`,
+      evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls}${l.adj?"（调）":""} ${l.p}`,
         start:`${ds}T${sh}:${sm}:00`, end:`${ds}T${eh}:${em}:00`,
         classNames: l.adj ? "adj" : "les" });
     });
@@ -186,12 +187,21 @@ function makeCalendar(initialView){
     locale: "zh-cn",
     height: "auto",
     firstDay: 1,
-    headerToolbar: { left:"prev,next today", center:"title", right:"timeGridWeek,dayGridMonth" },
+    headerToolbar: { left:"prev,next", center:"title", right:"today" },
     buttonText: { today:"今天", week:"周", month:"月" },
     allDayText: "假日",
     slotMinTime: "08:00", slotMaxTime: "17:00",
     editable: true,           // 原生触屏/鼠标拖拽
     eventStartEditable: true,
+    displayEventTime: false,
+    dayMaxEventRows: 3,
+    eventContent: (arg) => {
+      if (arg.view.type == "dayGridMonth"){
+        const m = arg.event.title.match(/^(\S+?)(（调）)? (\d+)$/);
+        if(m) return { html: `<span style="font-size:10px">${m[1]}${m[2]||""}</span>` };
+      }
+      return true;
+    },
     events: (info, ok) => ok(buildEvents(info)),
     eventDrop: (info) => handleDrop(info),
     datesSet: (s) => { document.getElementById("headSub").textContent =
