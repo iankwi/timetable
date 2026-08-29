@@ -37,6 +37,7 @@
   .cell.selon { outline:2px solid var(--green); outline-offset:-2px; }
   .cell.droptarget { outline:2px dashed var(--green); outline-offset:-2px; background:#fff; }
   .cell.dragging { opacity:.35; }
+  .cell.movedout { opacity:.45; }
   .cell .cls { font-size:12px; font-weight:600; color:var(--green); }
   .cell .t { font-size:9px; color:#555; margin-top:1px; }
   .cell .adj { position:absolute; top:2px; right:3px; font-size:9px; color:var(--amber); }
@@ -172,15 +173,13 @@ const fmt = d => `${d.getMonth()+1}月${d.getDate()}日 周${WDS[d.getDay()]}`;
 function inSemester(d){ const ds=dstr(d); return ds>=DATA.semStart && ds<=DATA.semEnd; }
 function mondayOf(d){ const m=new Date(d); const k=(m.getDay()+6)%7; m.setDate(m.getDate()-k); return m; }
 
-/* 某日期的实际课程 = 基课表(按星期) + 临时调课，学期外为空 */
+/* 某日期的实际课程 = 基课表(按星期) + 临时调课(调出/调入按各自日期生效)，学期外为空 */
 function lessonsOn(dt){
   if(!inSemester(dt)) return [];
-  const wd = dt.getDay(), ds = dstr(dt);
-  let ls = DATA.lessons.filter(l=>l[0]==wd).map(l=>({wd:l[0],p:l[1],cls:l[2],adj:""}));
-  ADJ.filter(a=>a.date==ds).forEach(a=>{
-    ls = ls.filter(l=>l.p!=a.from[1] && l.p!=a.to[1]);
-    ls.push({wd:wd, p:a.to[1], cls:a.cls, adj:"调"});
-  });
+  const ds = dstr(dt);
+  let ls = DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1],cls:l[2],adj:""}));
+  ADJ.filter(a=>a.fromDate==ds).forEach(a=>{ ls = ls.filter(l=>l.p!=a.fromP); });
+  ADJ.filter(a=>a.toDate==ds).forEach(a=>{ ls = ls.filter(l=>l.p!=a.toP); ls.push({p:a.toP, cls:a.cls, adj:"调"}); });
   return ls.sort((a,b)=>a.p-b.p);
 }
 function baseAt(wd,p){ return DATA.lessons.find(l=>l[0]==wd&&l[1]==p); }
@@ -231,11 +230,13 @@ function renderWeek(){
     for(let w=1;w<=5;w++){
       const b = baseAt(w,p);
       const dt = new Date(mon); dt.setDate(mon.getDate()+w-1);
-      const eff = lessonsOn(dt).find(l=>l.p==p);
-      const movedIn = eff && eff.adj=="调";
-      h += `<div class="cell${b?" has":""}${w==todayWd?" todaycol":""}${w==selWd?" selon":""}"
+      const ds2 = dstr(dt);
+      const inAdj = ADJ.find(a=>a.toDate==ds2 && a.toP==p);
+      const outAdj = ADJ.find(a=>a.fromDate==ds2 && a.fromP==p);
+      const showCls = inAdj ? inAdj.cls : (b ? b[2] : "");
+      h += `<div class="cell${b||inAdj?" has":""}${w==todayWd?" todaycol":""}${w==selWd?" selon":""}${outAdj&&!inAdj?" movedout":""}"
               data-wd="${w}" data-p="${p}" ${b?`data-cls="${b[2]}"`:""}>
-              ${eff?`<div class="cls">${eff.cls}</div><div class="t">${DATA.periods[p][0]}</div>${movedIn?'<div class="adj">调</div>':""}`:""}
+              ${showCls?`<div class="cls">${showCls}</div><div class="t">${DATA.periods[p][0]}</div>${inAdj?'<div class="adj">调</div>':(outAdj?'<div class="adj">调出</div>':"")}`:""}
             </div>`;
     }
   });
@@ -251,9 +252,10 @@ function renderWeekPanel(){
   const dt = new Date(mon); dt.setDate(mon.getDate()+selWd-1);
   const ds = dstr(dt), el = document.getElementById("wpanel");
   if(!el) return;
-  const ls = lessonsOn(dt);
+  const inSem = inSemester(dt);
+  const ls = inSem ? lessonsOn(dt) : DATA.lessons.filter(l=>l[0]==selWd).sort((a,b)=>a[1]-b[1]).map(l=>({wd:l[0],p:l[1],cls:l[2],adj:""}));
   const ts = TODOS.filter(t=>t.date==ds);
-  el.innerHTML = `<h3>${fmt(dt)}${inSemester(dt)?"":"（学期外）"}${ds==dstr(today)?" · 今天":""}</h3>`
+  el.innerHTML = `<h3>${fmt(dt)}${inSem?"":"（学期外 · 固定课表）"}${ds==dstr(today)?" · 今天":""}</h3>`
    + (ls.length ? ls.map(l=>`<div class="li">第${l.p}节 ${DATA.periods[l.p][0]}–${DATA.periods[l.p][1]} · ${DATA.subject} <b style="color:var(--green)">${l.cls}</b>${l.adj?"（临时调课）":""}</div>`).join("")
                 : "<div class='empty'>无课</div>")
    + (ts.length ? "<div class='sect' style='margin:8px 0 2px'>待办</div>" + ts.map(t=>`<div class="li">${t.done?"<span style='color:var(--green)'>■</span>":"□"} ${t.text}</div>`).join("") : "")
@@ -280,9 +282,18 @@ function bindDrag(){
     }, 400);
   }
   function moveGhost(x,y){ if(drag&&drag.ghost){ drag.ghost.style.left=(x+14)+"px"; drag.ghost.style.top=(y-30)+"px"; } }
-  function move(e, cx, cy){
+  function move(e, cx, cy, isMouse){
     if(!drag) return;
-    if(!drag.active){ if(Math.hypot(cx-drag.sx,cy-drag.sy)>10){ clearTimeout(lpTimer); drag=null; } return; }
+    if(!drag.active){
+      if(isMouse && Math.hypot(cx-drag.sx,cy-drag.sy)>8){
+        clearTimeout(lpTimer); drag.active=true;
+        const g=document.createElement("div"); g.className="ghost"; g.textContent=`${drag.cls} 第${drag.p}节`;
+        document.body.appendChild(g); drag.ghost=g; moveGhost(cx,cy);
+        drag.from.classList.add("dragging");
+        return;
+      }
+      if(Math.hypot(cx-drag.sx,cy-drag.sy)>10){ clearTimeout(lpTimer); drag=null; } return;
+    }
     e.preventDefault(); moveGhost(cx,cy);
     main.querySelectorAll(".droptarget").forEach(x=>x.classList.remove("droptarget"));
     const t = cellFromPoint(cx,cy);
@@ -303,7 +314,7 @@ function bindDrag(){
   grid.addEventListener("touchmove",  e=>move(e, e.touches[0].clientX, e.touches[0].clientY),  {passive:false});
   grid.addEventListener("touchend",   e=>end(e, e.changedTouches[0].clientX, e.changedTouches[0].clientY));
   grid.addEventListener("mousedown",  e=>start(e, e.clientX, e.clientY));
-  window.addEventListener("mousemove",e=>{ if(drag) move(e, e.clientX, e.clientY); });
+  window.addEventListener("mousemove",e=>{ if(drag) move(e, e.clientX, e.clientY, true); });
   window.addEventListener("mouseup",  e=>{ if(drag) end(e, e.clientX, e.clientY); });
 }
 
@@ -313,25 +324,33 @@ function openMoveSheet(d, toCell){
   const mon = mondayOf(today);
   const dt = new Date(mon); dt.setDate(mon.getDate()+d.wd-1);
   const ds = dstr(dt);
+  const semOk = inSemester(dt);
+  const dte = new Date(mon); dte.setDate(mon.getDate()+toWd-1);
+  const toDs = dstr(dte);
   const m = document.createElement("div");
   m.className = "mask"; m.onclick = e=>{ if(e.target==m) m.remove(); };
   m.innerHTML = `<div class="sheet"><h3>调课</h3>
     <div class="desc"><b>${d.cls}</b>：周${WD[d.wd-1]}第${d.p}节（${ds}）<br>调到 周${WD[toWd-1]}第${toP}节（${DATA.periods[toP][0]}）</div>
     <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button></div>
-    <div class="row"><button class="b-amber" onclick="doMove('temp',${d.wd},${d.p},${toWd},${toP},'${d.cls}','${ds}')">仅当天（临时）</button></div>
+    ${semOk
+      ? `<div class="row"><button class="b-amber" onclick="doMove('temp','${ds}',${d.p},'${toDs}',${toP},'${d.cls}')">仅当天（临时）</button></div>`
+      : `<div class="desc" style="color:#999;font-size:12px">${ds} 在学期外（无课），临时调课不适用，可选整学期调课</div>`}
     <div class="row"><button class="b-ok" onclick="doMove('perm',${d.wd},${d.p},${toWd},${toP},'${d.cls}')">整学期（长期）</button></div></div>`;
   document.body.appendChild(m);
 }
-function doMove(type, wd, p, toWd, toP, cls, ds){
+// perm: (wd, p, toWd, toP, cls)；temp: (fromDate, fromP, toDate, toP, cls)
+function doMove(type, a, b, c, d, cls){
   if(type=="perm"){
+    const [wd,p,toWd,toP] = [a,b,c,d];
     DATA.lessons = DATA.lessons.filter(l=>!(l[0]==wd&&l[1]==p));
     DATA.lessons = DATA.lessons.filter(l=>!(l[0]==toWd&&l[1]==toP));
     DATA.lessons.push([toWd,toP,cls]); saveAll();
     toast("已整学期调课");
   }else{
-    ADJ = ADJ.filter(a=>!(a.date==ds&&a.from[1]==p));
-    ADJ.push({id:Date.now(), date:ds, from:[wd,p], to:[toWd,toP], cls}); saveAll();
-    toast(`已临时调课（仅 ${ds}）`);
+    const [fromDate,fromP,toDate,toP] = [a,b,c,d];
+    ADJ = ADJ.filter(x=>!(x.fromDate==fromDate&&x.fromP==fromP));
+    ADJ.push({id:Date.now(), fromDate, fromP, toDate, toP, cls}); saveAll();
+    toast(`已临时调课：${fromDate} 第${fromP}节 调至 ${toDate} 第${toP}节`);
   }
   document.querySelectorAll(".mask").forEach(x=>x.remove());
   setTab(tab);
@@ -403,6 +422,16 @@ function setTab(t){
   ["Today","Week","Month"].forEach(x=>document.getElementById("tab"+x).classList.toggle("on", t.toLowerCase()==x.toLowerCase()));
   ({today:renderToday, week:renderWeek, month:renderMonth})[t]();
 }
+let swX=0, swY=0, swOn=false;
+main.addEventListener("touchstart",e=>{ swX=e.touches[0].clientX; swY=e.touches[0].clientY; swOn=!drag; },{passive:true});
+main.addEventListener("touchend",e=>{
+  if(!swOn || drag) return;
+  const dx=e.changedTouches[0].clientX-swX, dy=e.changedTouches[0].clientY-swY;
+  if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5){
+    const order=["today","week","month"], i=order.indexOf(tab);
+    setTab(order[Math.min(order.length-1,Math.max(0,i+(dx<0?1:-1)))]);
+  }
+},{passive:true});
 document.getElementById("tabToday").onclick = ()=>setTab("today");
 document.getElementById("tabWeek").onclick = ()=>setTab("week");
 document.getElementById("tabMonth").onclick = ()=>setTab("month");
