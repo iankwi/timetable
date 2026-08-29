@@ -369,39 +369,51 @@ function addTodo(){
 }
 
 /* ================= 系统设置 ================= */
+/* ================= 系统设置：课表信息编辑 + 数据管理（两组职责分明） ================= */
 function openSettingsSheet(){
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
   const m = document.createElement("div"); m.className = "mask";
-  m.innerHTML = `<div class="sheet"><h3>设置</h3>
-    <div class="desc" style="font-size:13px;color:#66707a">${isBlank() ? "尚未导入课表" : "当前课表：" + (DATA.teacher || "未命名教师") + " · 学期 " + DATA.semStart + " 至 " + DATA.semEnd}</div>
-    <div class="row"><button class="b-cancel" style="flex:1" onclick="this.closest('.mask').remove()">关闭</button>
-    <button class="b-ok" style="flex:1;background:var(--green-l);color:var(--green)" onclick="this.closest('.mask').remove();openImportSheet()">重新导入课表</button></div>
+  m.innerHTML = `<div class="sheet" style="max-height:80dvh;overflow:auto"><h3>设置</h3>
+    <div class="note" style="font-size:11px;color:#999;margin-bottom:8px">① 课表基本信息（改完点保存，影响全部视图）</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input type="text" id="stTeacher" placeholder="教师姓名" value="${DATA.teacher||""}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px">
+      <input type="text" id="stSubject" placeholder="科目" value="${DATA.subject||""}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <input type="date" id="stStart" value="${DATA.semStart}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px">
+      <span style="color:#999">至</span>
+      <input type="date" id="stEnd" value="${DATA.semEnd}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px">
+    </div>
+    <div class="row" style="margin-top:0"><button class="b-ok" style="flex:1" onclick="saveTimetableInfo()">保存课表信息</button></div>
+    <div class="note" style="font-size:11px;color:#999;margin:16px 0 8px">② 数据管理（不可恢复，看清范围再点）</div>
     <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#f2f0ea;color:#66707a;font-weight:600" onclick="doClearPersonal()">清空个人记录</button></div>
-    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#fdeaea;color:var(--amber);font-weight:600" onclick="doClearTimetable()">清除课表数据（回到待导入状态）</button></div>
-    <div class="note" style="font-size:11px;color:#999;margin-top:10px">我的课表 v1.1 · 数据仅保存在本机，不内置任何他人课表</div></div>`;
+    <div class="note" style="font-size:11px;color:#999;margin:4px 0 8px">↑ 只清 待办/日程/区间/调课记录，课程表保留</div>
+    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#fdeaea;color:var(--amber);font-weight:600" onclick="doClearTimetable()">清除课表数据</button></div>
+    <div class="note" style="font-size:11px;color:#999;margin:4px 0 8px">↑ 只清 课程表（回到待导入状态），个人记录保留。可随后重新导入新学期课表</div>
+    <div class="row"><button class="b-cancel" style="flex:1" onclick="this.closest('.mask').remove()">关闭</button></div>
+    <div class="note" style="font-size:11px;color:#999;margin-top:10px">我的课表 v1.3 · 数据仅保存在本机</div></div>`;
   document.body.appendChild(m);
 }
+function saveTimetableInfo(){
+  DATA.teacher = document.getElementById("stTeacher").value.trim();
+  DATA.subject = document.getElementById("stSubject").value.trim();
+  DATA.semStart = document.getElementById("stStart").value;
+  DATA.semEnd = document.getElementById("stEnd").value;
+  if(DATA.semEnd <= DATA.semStart){ toast("学期结束日期需晚于开始日期"); return; }
+  saveAll();
+  document.getElementById("hTitle").textContent = isBlank() ? "我的课表（未导入）" : ((DATA.subject||"课表") + " · " + (DATA.teacher||"未命名"));
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("课表信息已保存"); setTab(tab);
+}
+
 function doClearTimetable(){
   if(!confirm("清除当前课表数据？个人记录（待办/日程/区间）保留。")) return;
-  DATA.lessons = []; if(DATA.teacher!==undefined){ DATA.teacher=""; DATA.subject=""; }
+  DATA.lessons = []; DATA.teacher = ""; DATA.subject = "";
   saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
   document.getElementById("hTitle").textContent = "我的课表（未导入）";
   toast("课表已清除"); setTab(tab); if(isBlank()) setTimeout(openImportSheet, 400);
 }
-function doClearPersonal(){
-  if(!confirm("确定清空全部待办、日程、区间和调课记录？（课表保留）")) return;
-  TODOS = []; RANGES = []; OVR = {}; HIST = []; saveAll();
-  document.querySelectorAll(".mask").forEach(x=>x.remove());
-  toast("个人记录已清空"); setTab(tab);
-}
-function doFullReset(){
-  if(!confirm("将恢复内置默认课表（郑文娟）并清空全部个人数据，确定？")) return;
-  DATA = JSON.parse(JSON.stringify(DEFAULT_DATA)); TODOS = []; RANGES = []; OVR = {}; HIST = [];
-  saveAll(); document.getElementById("hTitle").textContent = isBlank() ? "我的课表（未导入）" : (DATA.subject + " · " + DATA.teacher);
-  document.querySelectorAll(".mask").forEach(x=>x.remove());
-  toast("已恢复默认"); setTab(tab);
-}
-
-/* ================= 日期面板与添加菜单（参考 Timeblocks 日程表模块） ================= */
+/* ================= 日期面板与添加菜单（参考 Timeblocks 日程表模块） ================= *//* ================= 日期面板与添加菜单（参考 Timeblocks 日程表模块） ================= */
 function openDaySheet(dt){
   const ds = dstr(dt);
   const ls = lessonsOn(dt), ts = TODOS.filter(t=>t.date==ds);
