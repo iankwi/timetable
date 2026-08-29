@@ -25,7 +25,9 @@
   /* FullCalendar 适配 */
   #cal { background:#fff; border-radius:10px; padding:6px; height:calc(100% - 10px); }
   /* Timeblocks 式宽松月格：大日期数字、事件为小色条、行高撑满 */
-  .fc .fc-daygrid-day-number { font-size:14px; font-weight:500; padding:6px 8px; }
+  .fc .fc-daygrid-day-number { font-size:15px; font-weight:500; padding:6px 8px; color:#444; }
+  .fc .fc-scrollgrid-section-header td, .fc .fc-col-header-cell { border:none; }
+  .fc .fc-col-header-cell-cushion { color:#999; font-weight:400; }
   .fc .fc-daygrid-day-frame { padding:2px; }
   .fc .fc-daygrid-event { border-radius:4px; margin:2px 1px; font-size:10px; padding:2px 5px; min-height:0; }
   .fc .fc-daygrid-day.fc-day-today { background:#eaf5f0; }
@@ -232,6 +234,8 @@ function makeCalendar(){
   calendar = new FullCalendar.Calendar(el, {
     initialView: "dayGridMonth",
     locale: "zh-cn",
+    dayHeaderFormat: { weekday: "narrow" },        // 表头只显示 一 二 三 ...
+    dayCellContent: (arg) => ({ html: String(arg.date.getDate()) }),   // 日期只显示数字，去掉"日"
     height: "100%",          // 月格撑满整屏（Timeblocks 式）
     firstDay: 1,
     headerToolbar: { left:"prev,next", center:"title", right:"today" },
@@ -337,13 +341,69 @@ function openDaySheet(dt){
     <div class="desc">${ls.length
       ? ls.map(l=>`第${l.p}节 ${DATA.periods[l.p][0]} · <b style="color:var(--green)">${l.cls}</b>${l.adj?"（调）":""}`).join("<br>")
       : "无课"}</div>
-    ${rg.length?`<div class="note" style="color:var(--amber)">区间：${rg.map(r=>r.title+"（"+fmtD(r.start)+"–"+fmtD(r.end)+"）").join("、")}</div>`:""}
-    ${ts.length?`<div class="note">待办/日程：${ts.map(t=>(t.done?"☑ ":"☐ ")+t.text).join("、")}</div>`:""}
+    ${rg.length? rg.map(r=>`<div class="row" style="margin:4px 0 0;align-items:center">
+      <span style="flex:1;font-size:13px;color:var(--amber)" onclick="editRange(${r.id})">${r.title}（${fmtD(r.start)}–${fmtD(r.end)}）</span>
+      <button style="border:none;background:none;color:#ccc;font-size:15px;padding:4px 8px" onclick="delRangeFromSheet(event,${r.id})">✕</button></div>`).join(""):""}
+    ${ts.length? ts.map(t=>`<div class="row" style="margin:4px 0 0;align-items:center">
+      <span style="flex:1;font-size:13px;${t.done?"text-decoration:line-through;color:#aaa;":""}" onclick="editTodo(${t.id})">${t.type=="memo"?"「日程」 ":"「任务」 "}${t.done?"☑ ":""}${t.text}</span>
+      <button style="border:none;background:none;color:#ccc;font-size:15px;padding:4px 8px" onclick="delTodoFromSheet(event,${t.id})">✕</button></div>`).join(""):""}
     <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">关闭</button></div>
     <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:var(--green-l);color:var(--green);font-weight:600" onclick="addScheduleSheet('${ds}')">日程</button>
     <button style="flex:1;padding:11px;border:none;border-radius:8px;background:#eef2ff;color:#4a5ac2;font-weight:600" onclick="openTodoSheet('${ds}')">任务</button></div>
     <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#fdf0e3;color:var(--amber);font-weight:600" onclick="addRangeSheet('${ds}')">区间</button></div></div>`;
   document.body.appendChild(m);
+}
+let editingTodo = null, editingRange = null;
+function delTodoFromSheet(e,id){ if(e) e.stopPropagation(); if(!confirm("删除这条记录？")) return; TODOS = TODOS.filter(t=>t.id!=id); saveAll(); refreshSheetAndViews(); }
+function delRangeFromSheet(e,id){ if(e) e.stopPropagation(); if(!confirm("删除这个区间？")) return; RANGES = RANGES.filter(r=>r.id!=id); saveAll(); refreshSheetAndViews(); }
+function refreshSheetAndViews(){
+  const cur = document.querySelector(".sheet input[type=date], .sheet input[id=tdDate]");
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  if(tab=="week") renderWeek(); else { refreshCal(); }
+  if(cur){ const dt = pdate(cur.value||dstr(today)); openDaySheet(dt); }
+}
+function editTodo(id){
+  const t = TODOS.find(x=>x.id==id); if(!t) return;
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  editingTodo = id;
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>编辑${t.type=="memo"?"日程":"任务"}</h3>
+    <input type="date" id="tdDate" value="${t.date}">
+    <textarea id="tdText">${t.text}</textarea>
+    <div class="row"><button class="b-cancel" onclick="editingTodo=null;this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveTodoEdit()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveTodoEdit(){
+  const t = TODOS.find(x=>x.id==editingTodo); if(!t) return;
+  t.date = document.getElementById("tdDate").value;
+  t.text = document.getElementById("tdText").value.trim();
+  if(!t.text){ toast("内容不能为空"); return; }
+  editingTodo = null; saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已保存"); setTab(tab);
+}
+function editRange(id){
+  const r = RANGES.find(x=>x.id==id); if(!r) return;
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  editingRange = id;
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>编辑区间</h3>
+    <input type="date" id="rgStart" value="${r.start}">
+    <input type="date" id="rgEnd" value="${r.end}">
+    <textarea id="rgText">${r.title}</textarea>
+    <div class="row"><button class="b-cancel" onclick="editingRange=null;this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveRangeEdit()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveRangeEdit(){
+  const r = RANGES.find(x=>x.id==editingRange); if(!r) return;
+  const start = document.getElementById("rgStart").value, end = document.getElementById("rgEnd").value;
+  const text = document.getElementById("rgText").value.trim();
+  if(!text){ toast("名称不能为空"); return; }
+  if(end < start){ toast("结束日期不能早于开始日期"); return; }
+  r.start = start; r.end = end; r.title = text;
+  editingRange = null; saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已保存"); setTab(tab);
 }
 function addScheduleSheet(ds){
   document.querySelectorAll(".mask").forEach(x=>x.remove());
@@ -361,7 +421,7 @@ function saveSchedule(){
   if(!text){ toast("请填写日程内容"); return; }
   TODOS.push({ id:Date.now(), date, text, done:false, type:"memo" });
   saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
-  toast("已添加日程"); setTab(tab);
+  toast("已添加日程"); refreshSheetAndViews();
 }
 function addRangeSheet(ds){
   document.querySelectorAll(".mask").forEach(x=>x.remove());
