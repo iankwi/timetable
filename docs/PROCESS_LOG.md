@@ -277,3 +277,17 @@ APK 深度静态分析（strings/classes 全量）确认其日程表模块实体
 - 验证：月视图/周视图所有字条文字对比度达标 ✓
 
 换肤实现说明：原代码大量使用 CSS 变量 --green，换肤时变量语义保留（--green 现指向琥珀主色），历史色值引用自动生效。
+
+## 2026-08-30 第 25 轮：安装 OpenDesign 技能库并按 redesign-skill 方法重设计
+
+用户不满意琥珀换肤。安装 nexu-io/open-design 的 4 个技能：redesign-skill（重设计方法论）、impeccable-design-polish、design-review、theme-factory（~/.agents/skills/）。
+
+按 redesign-skill 流程（扫描→诊断→修复）诊断出的问题：
+1. 琥珀色泛滥无主次（顶栏/课程条/区间/FAB 全是琥珀）——准则：强调色唯一，其余去饱和
+2. 纯黑阴影不协调——准则：阴影应染背景色相
+3. 无按压态/过渡——显得生硬
+4. 重色顶栏压住界面——不够安静
+
+重设计方向"暖纸 + 青绿墨"：背景暖纸白 #faf9f5，顶栏去色块改浅底墨字，唯一强调色深青绿 #0f766e，课程/字条青绿系，阴影染暖 rgba(87,64,28,.06~.07)，全站按钮补 transition+按压缩放，调课标记保留玫瑰色 #bb4a3c 作状态色。
+验证：顶栏浅底墨字、全要素对比度达标 ✓。
+技能安装记录：~/.agents/skills/{redesign-skill,impeccable-design-polish,design-review,theme-factory}。
