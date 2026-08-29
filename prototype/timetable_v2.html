@@ -62,6 +62,9 @@
   .whint { font-size:11px; color:#999; text-align:center; padding:6px 0; }
   .fc-event { border:none; border-radius:5px; font-size:11px; padding:1px 3px; }
   .fc-daygrid-event { margin:1px 0; }
+  .mdot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin:1px; }
+  .mdot-adj { background:var(--amber); }
+  .mdot-hol { background:#e05a4e; }
   .fc-event.les { background:var(--green-l); color:var(--green); border-left:3px solid var(--green); }
   .fc-event.les .fc-event-main { color:var(--green); font-weight:600; }
   .fc-event.adj { background:var(--green-l); border-left:3px solid var(--amber); }
@@ -201,7 +204,7 @@ function buildEvents(info){
     const ds = dstr(d);
     const hol = holidayOf(d);
     if(hol && inSemester(d))
-      evts.push({ id:"hol-"+ds, title:hol.name+" · 休", start:ds, allDay:true, display:"block",
+      evts.push({ id:"hol-"+ds, title:hol.name+" · 休", start:ds, allDay:true,
                   classNames:"hol", editable:false });
     lessonsOn(d).forEach(l=>{
       if(!DATA.periods[l.p]) return;   // 缺时间定义的节次跳过，避免渲染中断
@@ -241,12 +244,11 @@ function makeCalendar(){
     },
     editable: false,          // 调课统一在周视图操作
     displayEventTime: false,
-    dayMaxEventRows: 3,
-    dayMaxEvents: 3,
+    dayMaxEvents: 4,
     eventContent: (arg) => {
       if (arg.view.type == "dayGridMonth"){
-        const m = arg.event.title.match(/^(\S+?)(（调）)? (\d+)$/);
-        if(m) return { html: `<span style="font-size:10px">${m[1]}${m[2]||""}</span>` };
+        if(arg.event.classNames.includes("hol")) return { html: `<span class="mdot mdot-hol"></span>` };
+        return { html: `<span class="mdot${arg.event.extendedProps && arg.event.extendedProps.adj ? " mdot-adj" : ""}"></span>` };
       }
       return true;
     },
