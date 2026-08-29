@@ -23,7 +23,13 @@
          background:var(--green); color:#fff; font-size:26px; border:none; box-shadow:0 4px 12px rgba(0,0,0,.25); z-index:9; }
 
   /* FullCalendar 适配 */
-  #cal { background:#fff; border-radius:10px; padding:6px; }
+  #cal { background:#fff; border-radius:10px; padding:6px; height:calc(100% - 10px); }
+  /* Timeblocks 式宽松月格：大日期数字、事件为小色条、行高撑满 */
+  .fc .fc-daygrid-day-number { font-size:14px; font-weight:500; padding:6px 8px; }
+  .fc .fc-daygrid-day-frame { padding:2px; }
+  .fc .fc-daygrid-event { border-radius:4px; margin:2px 1px; font-size:10px; padding:2px 5px; min-height:0; }
+  .fc .fc-daygrid-day.fc-day-today { background:#eaf5f0; }
+  .fc .fc-col-header-cell-cushion { font-size:12px; padding:6px 0; }
   .fc { font-size:12px; }
   .fc .fc-toolbar.fc-header-toolbar { margin-bottom:8px; flex-wrap:wrap; gap:4px; }
   .fc .fc-button { background:var(--green-l); border:none; color:var(--green); font-size:12px; padding:4px 10px; }
@@ -219,7 +225,7 @@ function makeCalendar(){
   calendar = new FullCalendar.Calendar(el, {
     initialView: "dayGridMonth",
     locale: "zh-cn",
-    height: "auto",
+    height: "100%",          // 月格撑满整屏（Timeblocks 式）
     firstDay: 1,
     headerToolbar: { left:"prev,next", center:"title", right:"today" },
     buttonText: { today:"今天", week:"周", month:"月" },
@@ -236,6 +242,7 @@ function makeCalendar(){
     editable: false,          // 调课统一在周视图操作
     displayEventTime: false,
     dayMaxEventRows: 3,
+    dayMaxEvents: 3,
     eventContent: (arg) => {
       if (arg.view.type == "dayGridMonth"){
         const m = arg.event.title.match(/^(\S+?)(（调）)? (\d+)$/);
