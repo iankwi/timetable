@@ -1,0 +1,6 @@
+{
+  "appId": "com.zhengwenjuan.timetable",
+  "appName": "我的课表",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}

@@ -291,3 +291,16 @@ APK 深度静态分析（strings/classes 全量）确认其日程表模块实体
 重设计方向"暖纸 + 青绿墨"：背景暖纸白 #faf9f5，顶栏去色块改浅底墨字，唯一强调色深青绿 #0f766e，课程/字条青绿系，阴影染暖 rgba(87,64,28,.06~.07)，全站按钮补 transition+按压缩放，调课标记保留玫瑰色 #bb4a3c 作状态色。
 验证：顶栏浅底墨字、全要素对比度达标 ✓。
 技能安装记录：~/.agents/skills/{redesign-skill,impeccable-design-polish,design-review,theme-factory}。
+
+## 2026-08-30 第 26 轮：Capacitor 打包 APK 成功
+
+环境搭建（用户网络为热点，多处需绕行）：
+- JDK：brew cask 需 sudo 失败 → Adoptium tarball 免安装（~/jdk17、~/jdk21，Capacitor 8 需 21）
+- Android SDK：cmdline-tools 官方下载正常，sdkmanager 装 platform-tools/platforms;android-34/build-tools;34.0.0
+- Gradle：wrapper 下载 services.gradle.org 被 JDK 证书链拒绝（热点网络对该域名干扰）→ curl 预下载 gradle-8.14.3-all.zip 注入 ~/.gradle/wrapper/dists/gradle-8.14.3-all/10utluxaxniiv4wxiphsi49nj/（hash 目录以 wrapper 实际创建的为准）
+- Maven 依赖：android/build.gradle 加阿里云镜像（google/central 前置）
+
+产物：我的课表-v1.0.apk（debug 签名，4.0MB，appId com.zhengwenjuan.timetable，应用名"我的课表"）
+安装方式：微信文件传输助手发 APK 到手机 → 点击安装 → 允许未知来源。
+
+数据迁移注意：APK 内应用存储与浏览器 localStorage 不互通，首次使用需在 App 内重新"导入课表"（timetable.json）并重建待办/区间。

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f766e">
+<title>我的课表 v2 · 郑文娟</title>
+<style>
+  :root { --green:#0f766e; --green-l:#e2efec; --line:#e7e2d6; --amber:#bb4a3c; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif; background:#f5f6f7; color:#222;
+         display:flex; flex-direction:column; height:100dvh; background:#faf9f5; }
+  header { background:#faf9f5; color:#292524; padding:12px 14px 8px; flex:none; display:flex; align-items:center; border-bottom:1px solid #eee9dd; }
+  header h1 { font-size:17px; font-weight:600; letter-spacing:-0.2px; }
+  header .sub { font-size:12px; color:#8a8478; margin-top:2px; }
+  header button { background:#eee9dd; border:none; color:#57534e; font-size:13px;
+                  border-radius:10px; padding:9px 12px; margin-left:6px; }
+  nav { display:flex; background:#fff; border-bottom:1px solid var(--line); flex:none; }
+  nav button { flex:1; padding:11px; border:none; background:none; font-size:14px; color:#888; border-bottom:2px solid transparent; }
+  nav button.on { color:var(--green); border-bottom-color:var(--green); font-weight:600; }
+  nav button { transition:color .2s, border-color .2s; }
+  button { transition:transform .15s, box-shadow .2s, background .2s; }
+  button:active { transform:scale(.97); }
+  main { flex:1; overflow:auto; padding:8px 6px 90px; }
+  .fab { position:fixed; right:16px; bottom:24px; width:54px; height:54px; border-radius:50%;
+         background:var(--green); color:#fff; font-size:26px; border:none; box-shadow:0 4px 14px rgba(15,118,110,.30); z-index:9; }
+
+  /* FullCalendar 适配 */
+  #cal { background:#ffffff; border-radius:16px; padding:6px; height:calc(100% - 10px); box-shadow:0 2px 14px rgba(87,64,28,.07); }
+  /* Timeblocks 式宽松月格：大日期数字、事件为小色条、行高撑满 */
+  .fc .fc-daygrid-day-number { font-size:15px; font-weight:500; padding:6px 8px; color:#3a4046; }
+  .fc .fc-scrollgrid-section-header td, .fc .fc-col-header-cell { border:none; }
+  .fc .fc-col-header-cell-cushion { color:#999; font-weight:400; }
+  .fc .fc-daygrid-day-frame { padding:2px; }
+  .fc .fc-daygrid-event { border-radius:4px; margin:2px 1px; font-size:10px; padding:2px 5px; min-height:0; }
+  .fc .fc-daygrid-day.fc-day-today { background:#e2efec; }
+  .fc .fc-col-header-cell-cushion { font-size:12px; padding:6px 0; }
+  .fc { font-size:12px; }
+  .fc .fc-toolbar.fc-header-toolbar { margin-bottom:8px; flex-wrap:wrap; gap:4px; }
+  .fc .fc-button { background:var(--green-l); border:none; color:var(--green); font-size:12px; padding:4px 10px; }
+  .fc .fc-button-primary:not(:disabled).fc-button-active { background:var(--green); color:#fff; }
+  .fc .fc-toolbar-title { font-size:15px; font-weight:600; }
+  .fc-theme-standard td, .fc-theme-standard th, .fc-theme-standard .fc-scrollgrid { border-color:#eee; }
+  .fc .fc-timegrid-slot { height:8px; }
+  .fc .fc-timegrid-slot-label-frame { font-size:10px; }
+  /* 周视图：节次行网格（参考 WakeUp 等课表项目：行=节次，列=星期，格高固定） */
+  #weekGrid { display:grid; grid-template-columns:52px repeat(5,1fr); gap:3px; background:#ffffff;
+              border-radius:10px; padding:8px 5px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  .whd { text-align:center; font-size:11px; color:#666; padding:6px 0; border-radius:9px; }
+  .whd small { display:block; font-size:9px; color:#999; }
+  .whd.today { background:var(--green); color:#fff; font-weight:600; }
+  .whd.today small { color:#d9efe6; }
+  .wslot { font-size:10px; color:#888; text-align:center; padding:8px 0; line-height:1.5; }
+  .wslot b { display:block; color:#333; font-size:12px; }
+  .wcell { min-height:72px; border-radius:9px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  .wcell.has { background:var(--green-l); border-left:3px solid var(--green); }
+  .wcell.todaycol { outline:2px solid #f5c542; outline-offset:-2px; }
+  .wcell .cls { font-size:13px; font-weight:600; color:#0f766e; }
+  .wcell .tm { font-size:9px; color:#667; }
+  .wcell .adj { font-size:9px; color:var(--amber); }
+  .wcell.lift { opacity:.4; }
+  .wcell.pick { outline:2px dashed var(--green); outline-offset:-2px; background:#fff; }
+  .wcell.selpick { outline:3px solid var(--green); outline-offset:-2px; background:#d9efe6; }
+  .wnav { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 8px; }
+  .wnav b { font-size:14px; }
+  .wnav button { border:none; background:var(--green-l); color:var(--green); width:30px; height:30px; border-radius:8px; font-size:15px; }
+  .whint { font-size:11px; color:#66707a; text-align:center; padding:6px 0; }
+  .fc-event { border:none; border-radius:8px; font-size:11px; padding:1px 3px; }
+  .fc-daygrid-event { margin:1px 0; }
+  .mdot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--green); margin:1px; }
+  .fc-event.rgev, .fc-event.rgev .fc-event-main, .fc-event.rgev span { background-color:#fdeeda; color:#9a4a2e !important; }
+  .fc-event.tdev, .fc-event.tdev .fc-event-main, .fc-event.tdev span { background-color:#eef2ff; color:#4a5ac2 !important; }
+  .fc-event.mgev, .fc-event.mgev .fc-event-main, .fc-event.mgev span { background-color:var(--green-l); color:#0f766e !important; }
+  .fc-event.rgev { font-weight:600; border-radius:4px; }
+  .fc-event.tdev, .fc-event.mgev { border-radius:4px; }
+  .mchip { display:block; font-size:10px; line-height:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#0f766e; }
+  .mchip-adj { color:var(--amber) !important; }
+  .fc-daygrid-day.cellrange { background:#fdf3e7; }
+  .fc-daygrid-day.cellrange .fc-daygrid-day-number { color:var(--amber); }
+  .mdot-adj { background:var(--amber); }
+  .mdot-hol { background:#e05a4e; }
+  .fc-event.les { background:var(--green-l); color:var(--green); border-left:3px solid var(--green); }
+  .fc-event.les .fc-event-main { color:var(--green); font-weight:600; }
+  .fc-event.adj { background:var(--green-l); border-left:3px solid var(--amber); }
+  .fc-event.adj .fc-event-main { color:var(--green); font-weight:600; }
+  .fc-event.hol { background:#ffe3e3; color:#c0392b; font-weight:600; }
+  .fc-day-sat .fc-daygrid-day-number, .fc-day-sun .fc-daygrid-day-number { color:#c0392b; }
+
+  /* 今天视图 */
+  .day-card { background:#ffffff; border-radius:14px; box-shadow:0 1px 8px rgba(87,64,28,.06); padding:12px 14px; margin-bottom:10px; display:flex; gap:12px; align-items:center; }
+  .day-card .time { font-size:13px; color:#666; width:76px; flex:none; }
+  .day-card .time b { display:block; font-size:15px; color:#222; }
+  .day-card .info .cls { font-size:16px; font-weight:600; color:var(--green); }
+  .day-card .info .p { font-size:12px; color:#999; margin-top:2px; }
+  .day-card.now { border:2px solid var(--green); background:var(--green-l); }
+  .day-card .tag { margin-left:auto; font-size:11px; background:var(--green); color:#fff; border-radius:10px; padding:2px 8px; flex:none; }
+  .empty { text-align:center; color:#66707a; padding:16px 0; font-size:13px; }
+  .todo { background:#ffffff; border-radius:12px; box-shadow:0 1px 6px rgba(87,64,28,.05); padding:6px 14px; margin-bottom:8px; display:flex; gap:10px; align-items:center; font-size:14px; }
+  .todo input[type=checkbox] { width:22px; height:22px; accent-color:var(--green); flex:none; }
+  .todo.done span { text-decoration:line-through; color:#aaa; }
+  .todo .del { margin-left:auto; color:#66707a; border:none; background:none; font-size:16px; padding:8px 10px; }
+  .sect { font-size:13px; color:#888; margin:14px 4px 8px; }
+
+  /* 弹窗 */
+  .mask { position:fixed; inset:0; background:rgba(0,0,0,.4); display:flex; align-items:flex-end; z-index:20; }
+  .sheet { background:#ffffff; width:100%; border-radius:20px 20px 0 0; padding:18px 16px 28px; }
+  .sheet h3 { font-size:15px; margin-bottom:12px; }
+  .sheet textarea { width:100%; height:70px; border:1px solid var(--line); border-radius:8px; padding:8px; font-size:14px; resize:none; }
+  .sheet input[type=date] { border:1px solid var(--line); border-radius:8px; padding:8px; font-size:14px; margin-bottom:10px; width:100%; }
+  .sheet .desc { font-size:14px; line-height:1.6; margin-bottom:8px; }
+  .sheet .desc b { color:var(--green); }
+  .sheet .note { font-size:12px; color:#999; margin-bottom:6px; }
+  .sheet .row { display:flex; gap:10px; margin-top:12px; }
+  .sheet .row button { flex:1; padding:11px; border:none; border-radius:8px; font-size:14px; }
+  .b-cancel { background:#f0f0f0; color:#666; } .b-ok { background:var(--green); color:#fff; font-weight:600; }
+  .b-amber { background:#fff4e0; color:var(--amber); font-weight:600; }
+  #toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.75); color:#fff;
+           font-size:13px; padding:8px 16px; border-radius:20px; z-index:40; display:none; }
+  input[type=file] { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div style="flex:1"><h1 id="hTitle">信息技术 · 郑文娟</h1><div class="sub" id="headSub"></div></div>
+  <button onclick="document.getElementById('fileIn').click()">导入课表</button>
+  <input type="file" id="fileIn" accept=".json,application/json">
+</header>
+<nav>
+  <button id="tabToday" class="on">今天</button>
+  <button id="tabWeek">周课表</button>
+  <button id="tabMonth">月历</button>
+</nav>
+<main id="main"></main>
+<button class="fab" aria-label="添加日程任务" onclick="openDaySheet(today)">+</button>
+<div id="toast"></div>
+
+<script src="lib/fullcalendar.global.min.js"></script>
+<script>
+/* ================= 数据 ================= */
+const DEFAULT_DATA = {
+  teacher:"郑文娟", subject:"信息技术",
+  semStart:"2026-09-01", semEnd:"2027-01-27",
+  periods:{ "1":["08:20","09:00"], "2":["09:30","10:10"], "3":["10:25","11:05"],
+            "4":["11:20","12:00"], "5":["14:00","14:40"], "6":["14:55","15:35"],
+            "7":["15:40","17:10"] },
+  lessons:[ [1,3,"六.5"],[1,4,"四.4"],[1,5,"四.7"],[2,5,"六.4"],
+    [3,3,"四.6"],[3,4,"六.3"],[3,5,"六.2"],[3,6,"六.6"],
+    [4,4,"四.2"],[4,5,"四.1"],[4,6,"四.5"],[5,3,"六.1"],[5,5,"四.3"],[5,6,"六.7"] ],
+  // 法定假日（年初已知，导入 JSON 可更新；调休补课安排临近再拖拽调整）
+  holidays:[
+    {date:"2026-09-25", name:"中秋节"},
+    {date:"2026-10-01", name:"国庆节"}, {date:"2026-10-02", name:"国庆节"},
+    {date:"2026-10-05", name:"国庆节"}, {date:"2026-10-06", name:"国庆节"}, {date:"2026-10-07", name:"国庆节"},
+    {date:"2027-01-01", name:"元旦"}
+  ]
+};
+let DATA = JSON.parse(localStorage.getItem("tt2_data") || "null") || DEFAULT_DATA;
+// 迁移：补全缺失节次时间（老版本数据只有第3~6节）
+Object.keys(DEFAULT_DATA.periods).forEach(k=>{ if(!DATA.periods[k]) DATA.periods[k] = DEFAULT_DATA.periods[k]; });
+if(!DATA.holidays) DATA.holidays = DEFAULT_DATA.holidays;
+let OVR  = JSON.parse(localStorage.getItem("tt2_ovr") || "{}"); // 每日期完整课程覆盖 { "2026-09-02":[{p,cls,adj}] }
+let HIST = JSON.parse(localStorage.getItem("tt2_hist") || "[]"); // 撤销栈（OVR 快照）
+let TODOS = JSON.parse(localStorage.getItem("tt2_todos") || "[]");   // {id,date,text,done,type:'task'|'memo'}
+let RANGES = JSON.parse(localStorage.getItem("tt2_range") || "[]");  // {id,title,start,end}
+localStorage.removeItem("tt2_adj"); // 旧模型数据废弃
+
+function saveAll(){ localStorage.setItem("tt2_data", JSON.stringify(DATA));
+                    localStorage.setItem("tt2_ovr", JSON.stringify(OVR));
+                    localStorage.setItem("tt2_hist", JSON.stringify(HIST.slice(-20)));
+                    localStorage.setItem("tt2_todos", JSON.stringify(TODOS));
+                    localStorage.setItem("tt2_range", JSON.stringify(RANGES)); }
+function dstr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block";
+                     clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2400); }
+function holidayOf(d){ return DATA.holidays.find(h=>h.date==dstr(d)); }
+function inSemester(d){ const ds=dstr(d); return ds>=DATA.semStart && ds<=DATA.semEnd; }
+const WD = ["一","二","三","四","五","六","日"];
+const fmt = d => `${d.getMonth()+1}月${d.getDate()}日 周${["日","一","二","三","四","五","六"][d.getDay()]}`;
+
+/* 导入课表 JSON（可含 holidays） */
+document.getElementById("fileIn").addEventListener("change", e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const j = JSON.parse(r.result);
+      if(!Array.isArray(j.lessons)) throw 0;
+      const p = {};
+      j.lessons.forEach(l=>{ p[l.period] = [l.start, l.end]; });
+      DATA = { teacher:j.teacher||"教师", subject:j.subject||"课程",
+        semStart:j.semStart||j.start_date||DATA.semStart, semEnd:j.semEnd||j.end_date||DATA.semEnd,
+        periods:p, lessons:j.lessons.map(l=>[l.weekday, l.period, l["class"]||l.cls||""]),
+        holidays:j.holidays||DATA.holidays };
+      OVR = {}; HIST = []; saveAll();
+      document.getElementById("hTitle").textContent = `${DATA.subject} · ${DATA.teacher}`;
+      toast("导入成功：" + j.lessons.length + " 节课，假日 " + DATA.holidays.length + " 天"); refreshCal();
+    }catch(_){ toast("文件格式不对，请导入 timetable.json 格式"); }
+  };
+  r.readAsText(f); e.target.value = "";
+});
+
+/* ================= 课表计算 ================= */
+/* 某日期实际课程：假日隐藏基课；临时调课(补课)对任意日期生效 */
+function baseList(dt){
+  return (inSemester(dt) && !holidayOf(dt))
+    ? DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1], cls:l[2], adj:false})) : [];
+}
+function lessonsOn(dt){
+  const ds = dstr(dt);
+  const ls = OVR[ds] ? OVR[ds].map(l=>({...l})) : baseList(dt);
+  return ls.sort((a,b)=>a.p-b.p);
+}
+function baseAt(wd,p){ return DATA.lessons.find(l=>l[0]==wd&&l[1]==p); }
+
+/* 生成 FullCalendar 事件（按可视区间） */
+function buildEvents(info){
+  const evts = [];
+  const d0 = new Date(info.start), d1 = new Date(info.end);
+  for(const d = new Date(d0); d < d1; d.setDate(d.getDate()+1)){
+    const ds = dstr(d);
+    const hol = holidayOf(d);
+    if(hol && inSemester(d))
+      evts.push({ id:"hol-"+ds, title:hol.name+" · 休", start:ds, allDay:true,
+                  classNames:"hol", editable:false });
+    lessonsOn(d).forEach(l=>{
+      if(!DATA.periods[l.p]) return;   // 缺时间定义的节次跳过，避免渲染中断
+      const [sh,sm] = DATA.periods[l.p][0].split(":"), [eh,em] = DATA.periods[l.p][1].split(":");
+      evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls}${l.adj?"（调）":""}`,
+        start:`${ds}T${sh}:${sm}:00`, end:`${ds}T${eh}:${em}:00`,
+        extendedProps:{ cls:l.cls, p:l.p, adj:!!l.adj },
+        classNames: l.adj ? "adj" : "les", order: 9 });   // 圆点优先级低，被折叠时先折叠圆点
+    });
+  }
+  // 区间：跨日色条，标题直接可见
+  RANGES.forEach(r=>{
+    const e = new Date(r.end+"T00:00:00"); e.setDate(e.getDate()+1);
+    evts.push({ id:"rg-"+r.id, title:r.title, start:r.start, end:dstr(e), allDay:true,
+                classNames:"rgev", editable:false, eventStartEditable:false, order: 1 });
+  });
+  // 任务/日程：当日小字条
+  TODOS.forEach(t=>{
+    evts.push({ id:"td-"+t.id, title:(t.type=="memo"?"【日程】":"")+t.text, start:t.date, allDay:true,
+                classNames: t.type=="memo" ? "mgev" : "tdev", editable:false, order: 1 });
+  });
+  return evts;
+}
+
+/* ================= 日历（周=时间轴 / 月=格子，均支持拖拽） ================= */
+let calendar = null;
+function refreshCal(){ if(calendar) calendar.refetchEvents(); renderTodayIfVisible(); }
+function renderTodayIfVisible(){ if(tab=="today") renderToday(); }
+
+function makeCalendar(){
+  const el = document.getElementById("cal");
+  calendar = new FullCalendar.Calendar(el, {
+    initialView: "dayGridMonth",
+    locale: "zh-cn",
+    dayHeaderFormat: { weekday: "narrow" },        // 表头只显示 一 二 三 ...
+    dayCellContent: (arg) => ({ html: String(arg.date.getDate()) }),   // 日期只显示数字，去掉"日"
+    height: "100%",          // 月格撑满整屏（Timeblocks 式）
+    firstDay: 1,
+    headerToolbar: { left:"prev,next", center:"title", right:"today" },
+    buttonText: { today:"今天", week:"周", month:"月" },
+    allDayText: "假日",
+    slotMinTime: "08:00", slotMaxTime: "17:00",
+    slotDuration: "00:05:00",          // 5分钟细格：吸附准，节次时间点都在格线上
+    slotLabelInterval: "00:05:00",
+    slotLabelContent: (arg) => {       // 左轴按节次标注，非节次时间留空
+      const t = `${String(arg.date.getHours()).padStart(2,"0")}:${String(arg.date.getMinutes()).padStart(2,"0")}`;
+      const k = Object.keys(DATA.periods).find(k=>DATA.periods[k][0]==t);
+      if(!k) return "";
+      return { html: `<div class="slotLabel"><b>第${k}节</b><span>${t}</span></div>` };
+    },
+    editable: false,          // 调课统一在周视图操作
+    displayEventTime: false,
+    dayMaxEvents: 3,
+    dateClick: (arg) => openDaySheet(arg.date),
+    eventContent: (arg) => {
+      if (arg.view.type == "dayGridMonth"){
+        const cn = arg.event.classNames;
+        if(cn.includes("hol")) return { html: `<span class="mdot mdot-hol"></span>` };
+        if(cn.includes("rgev") || cn.includes("tdev") || cn.includes("mgev"))
+          return { html: `<span class="mchip">${arg.event.title}</span>` };
+        const ep = arg.event.extendedProps || {};
+        if(ep.cls) return { html: `<span class="mchip${ep.adj?" mchip-adj":""}">${ep.cls}${ep.adj?"（调）":""}</span>` };
+        if(cn.includes("hol")) return { html: `<span class="mchip mchip-hol">休</span>` };
+        return true;
+      }
+      return true;
+    },
+    events: (info, ok) => ok(buildEvents(info)),
+    dayCellClassNames: (arg) => {
+      const ds = dstr(arg.date);
+      return RANGES.some(r=>r.start<=ds && ds<=r.end) ? ["cellrange"] : [];
+    },
+    datesSet: (s) => { document.getElementById("headSub").textContent =
+      dstr(s.start) + " 至 " + dstr(new Date(s.end.getTime()-86400000)) +
+      " · 拖动课程块可调课"; }
+  });
+  calendar.render();
+}
+
+function pdate(s){ return new Date(s+"T00:00:00"); }
+function shortDs(ds){ const d=pdate(ds); return (d.getMonth()+1)+"月"+d.getDate()+"日"; }
+
+/* ================= 今天视图 ================= */
+function renderToday(){
+  document.getElementById("headSub").textContent = fmt(today) +
+    (holidayOf(today) ? " · " + holidayOf(today).name + "（休）" : (inSemester(today)?"":"（假期中）"));
+  const ds = dstr(today);
+  let h = "<div><div class='sect'>今天的课</div>";
+  const ls = lessonsOn(today);
+  if(!ls.length) h += "<div class='empty'>今天没有课</div>";
+  const now = today.getHours()*60+today.getMinutes();
+  ls.forEach(l=>{
+    const [s,e] = DATA.periods[l.p].map(t=>{const[a,b]=t.split(":");return +a*60+ +b;});
+    h += `<div class="day-card${now>=s&&now<e?" now":""}">
+      <div class="time"><b>${DATA.periods[l.p][0]}</b>${DATA.periods[l.p][1]}</div>
+      <div class="info"><div class="cls">${DATA.subject} ${l.cls}</div><div class="p">第${l.p}节${l.adj?" · 临时安排":""}</div></div>
+      ${now>=s&&now<e?"<span class='tag'>进行中</span>":""}</div>`;
+  });
+  const rs = RANGES.filter(r=>r.start<=ds && ds<=r.end);
+  if(rs.length) h += "<div class='sect'>进行中的区间</div>" + rs.map(r=>
+    `<div class="todo"><span>${r.text===undefined?r.title:r.title}</span>
+     <button class="del" aria-label="删除区间" onclick="delRange(${r.id})">✕</button></div>`).join("");
+  h += "<div class='sect'>今日待办</div><div id='todayTodos'></div></div>";
+  document.getElementById("todayHost").innerHTML = h;
+  const ts = TODOS.filter(t=>t.date==ds);
+  document.getElementById("todayTodos").innerHTML = ts.length ? ts.map(t=>`<div class="todo${t.done?" done":""}">
+    <input type="checkbox" aria-label="完成" ${t.done?"checked":""} onchange="toggleTodo(${t.id})">
+    <span>${t.text}</span>
+    <button class="del" aria-label="删除待办" onclick="delTodo(${t.id})">✕</button></div>`).join("")
+    : "<div class='empty'>暂无待办，点右下角 + 添加</div>";
+}
+function toggleTodo(id){ const t=TODOS.find(x=>x.id==id); t.done=!t.done; saveAll(); setTab(tab); }
+function delTodo(id){ if(!confirm("确定删除这条待办吗？")) return; TODOS=TODOS.filter(x=>x.id!=id); saveAll(); setTab(tab); }
+
+/* ================= 添加待办 ================= */
+function openTodoSheet(ds){
+  const d = ds || dstr(today);
+  const m = document.createElement("div");
+  m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>添加待办 · ${d}</h3>
+    <input type="date" id="tdDate" value="${d}">
+    <textarea id="tdText" placeholder="要做什么？如：批改四.3作业、备课、填表格"></textarea>
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="addTodo()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function addTodo(){
+  const date = document.getElementById("tdDate").value;
+  const text = document.getElementById("tdText").value.trim();
+  if(!text){ toast("请填写待办内容"); return; }
+  TODOS.push({ id:Date.now(), date, text, done:false });
+  saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已添加待办"); setTab(tab);
+}
+
+/* ================= 日期面板与添加菜单（参考 Timeblocks 日程表模块） ================= */
+function openDaySheet(dt){
+  const ds = dstr(dt);
+  const ls = lessonsOn(dt), ts = TODOS.filter(t=>t.date==ds);
+  const rg = RANGES.filter(r=>r.start<=ds && ds<=r.end);
+  const m = document.createElement("div"); m.className = "mask";
+  const fmtD = (d)=>{const x=pdate(d);return (x.getMonth()+1)+"月"+x.getDate()+"日";};
+  m.innerHTML = `<div class="sheet" style="max-height:70dvh;overflow:auto">
+    <h3>${fmt(dt)}${holidayOf(dt)?" · "+holidayOf(dt).name+"（休）":""}</h3>
+    <div class="desc">${ls.length
+      ? ls.map(l=>`第${l.p}节 ${DATA.periods[l.p][0]} · <b style="color:var(--green)">${l.cls}</b>${l.adj?"（调）":""}`).join("<br>")
+      : "无课"}</div>
+    ${rg.length? rg.map(r=>`<div class="row" style="margin:4px 0 0;align-items:center">
+      <span style="flex:1;font-size:13px;color:var(--amber)" onclick="editRange(${r.id})">${r.title}（${fmtD(r.start)}–${fmtD(r.end)}）</span>
+      <button style="border:none;background:none;color:#ccc;font-size:15px;padding:4px 8px" onclick="delRangeFromSheet(event,${r.id})">✕</button></div>`).join(""):""}
+    ${ts.length? ts.map(t=>`<div class="row" style="margin:4px 0 0;align-items:center">
+      <span style="flex:1;font-size:13px;${t.done?"text-decoration:line-through;color:#aaa;":""}" onclick="editTodo(${t.id})">${t.type=="memo"?"「日程」 ":"「任务」 "}${t.done?"☑ ":""}${t.text}</span>
+      <button style="border:none;background:none;color:#ccc;font-size:15px;padding:4px 8px" onclick="delTodoFromSheet(event,${t.id})">✕</button></div>`).join(""):""}
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">关闭</button></div>
+    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:var(--green-l);color:var(--green);font-weight:600" onclick="addScheduleSheet('${ds}')">日程</button>
+    <button style="flex:1;padding:11px;border:none;border-radius:8px;background:#eef2ff;color:#4a5ac2;font-weight:600" onclick="openTodoSheet('${ds}')">任务</button></div>
+    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#fdf0e3;color:var(--amber);font-weight:600" onclick="addRangeSheet('${ds}')">区间</button></div></div>`;
+  document.body.appendChild(m);
+}
+let editingTodo = null, editingRange = null;
+function delTodoFromSheet(e,id){ if(e) e.stopPropagation(); if(!confirm("删除这条记录？")) return; TODOS = TODOS.filter(t=>t.id!=id); saveAll(); refreshSheetAndViews(); }
+function delRangeFromSheet(e,id){ if(e) e.stopPropagation(); if(!confirm("删除这个区间？")) return; RANGES = RANGES.filter(r=>r.id!=id); saveAll(); refreshSheetAndViews(); }
+function refreshSheetAndViews(){
+  const cur = document.querySelector(".sheet input[type=date], .sheet input[id=tdDate]");
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  if(tab=="week") renderWeek(); else { refreshCal(); }
+  if(cur){ const dt = pdate(cur.value||dstr(today)); openDaySheet(dt); }
+}
+function editTodo(id){
+  const t = TODOS.find(x=>x.id==id); if(!t) return;
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  editingTodo = id;
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>编辑${t.type=="memo"?"日程":"任务"}</h3>
+    <input type="date" id="tdDate" value="${t.date}">
+    <textarea id="tdText">${t.text}</textarea>
+    <div class="row"><button class="b-cancel" onclick="editingTodo=null;this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveTodoEdit()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveTodoEdit(){
+  const t = TODOS.find(x=>x.id==editingTodo); if(!t) return;
+  t.date = document.getElementById("tdDate").value;
+  t.text = document.getElementById("tdText").value.trim();
+  if(!t.text){ toast("内容不能为空"); return; }
+  editingTodo = null; saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已保存"); setTab(tab);
+}
+function editRange(id){
+  const r = RANGES.find(x=>x.id==id); if(!r) return;
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  editingRange = id;
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>编辑区间</h3>
+    <input type="date" id="rgStart" value="${r.start}">
+    <input type="date" id="rgEnd" value="${r.end}">
+    <textarea id="rgText">${r.title}</textarea>
+    <div class="row"><button class="b-cancel" onclick="editingRange=null;this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveRangeEdit()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveRangeEdit(){
+  const r = RANGES.find(x=>x.id==editingRange); if(!r) return;
+  const start = document.getElementById("rgStart").value, end = document.getElementById("rgEnd").value;
+  const text = document.getElementById("rgText").value.trim();
+  if(!text){ toast("名称不能为空"); return; }
+  if(end < start){ toast("结束日期不能早于开始日期"); return; }
+  r.start = start; r.end = end; r.title = text;
+  editingRange = null; saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已保存"); setTab(tab);
+}
+function addScheduleSheet(ds){
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>添加日程 · ${ds}</h3>
+    <input type="date" id="scDate" value="${ds}">
+    <textarea id="scText" placeholder="当日事项，如：下午3点教研会议"></textarea>
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveSchedule()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveSchedule(){
+  const date = document.getElementById("scDate").value;
+  const text = document.getElementById("scText").value.trim();
+  if(!text){ toast("请填写日程内容"); return; }
+  TODOS.push({ id:Date.now(), date, text, done:false, type:"memo" });
+  saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已添加日程"); refreshSheetAndViews();
+}
+function addRangeSheet(ds){
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  const m = document.createElement("div"); m.className = "mask";
+  const d2 = new Date(ds+"T00:00:00"); d2.setDate(d2.getDate()+6);
+  m.innerHTML = `<div class="sheet"><h3>添加区间 · 跨日任务</h3>
+    <input type="date" id="rgStart" value="${ds}">
+    <input type="date" id="rgEnd" value="${dstr(d2)}">
+    <textarea id="rgText" placeholder="如：比赛集训、备考复习"></textarea>
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveRange()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveRange(){
+  const start = document.getElementById("rgStart").value;
+  const end = document.getElementById("rgEnd").value;
+  const text = document.getElementById("rgText").value.trim();
+  if(!text){ toast("请填写区间名称"); return; }
+  if(end < start){ toast("结束日期不能早于开始日期"); return; }
+  RANGES.push({ id:Date.now(), title:text, start, end });
+  saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已添加区间 " + start + " 至 " + end); setTab(tab);
+}
+function delRange(id){
+  if(!confirm("删除这个区间？")) return;
+  RANGES = RANGES.filter(r=>r.id!=id); saveAll(); setTab(tab);
+}
+
+/* ================= 切换 ================= */
+const main = document.getElementById("main");
+const today = new Date();
+let tab = "today";
+main.innerHTML = `<div id="todayHost" style="display:none"></div><div id="weekHost" style="display:none"></div><div id="cal" style="display:none"></div>`;
+/* ================= 周视图：节次行网格 ================= */
+let weekOff = 0;              // 相对本周的周偏移
+function mondayOf(d){ const m=new Date(d); const k=(m.getDay()+6)%7; m.setDate(m.getDate()-k); return m; }
+function weekMonday(){ const m = mondayOf(today); m.setDate(m.getDate()+weekOff*7); return m; }
+function renderWeek(){
+  const mon = weekMonday();
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  const periods = Object.keys(DATA.periods).map(Number).sort((a,b)=>a-b);
+  const tWd = (today.getDay()>=1&&today.getDay()<=5) ? today.getDay() : -1;
+  const sameWeek = dstr(mon)==dstr(mondayOf(today));
+  let h = `<div class='wnav'>
+    <button aria-label="上一周" onclick="weekShift(-1)">‹</button>
+    <b>${mon.getMonth()+1}月${mon.getDate()}日 – ${sun.getMonth()+1}月${sun.getDate()}日${sameWeek?"（本周）":""}</b>
+    <button aria-label="下一周" onclick="weekShift(1)">›</button>
+    <button aria-label="撤销上一步调课" onclick="undoLast()" ${HIST.length?"":"disabled style=\"opacity:.4\""}>撤销</button></div>
+    <div id='weekGrid'><div class='whd'>节次</div>`;
+  for(let w=1;w<=5;w++){
+    const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
+    h += `<div class="whd${w==tWd?" today":""}">${sameWeek&&w==tWd?"今天":"周"}${WD[w-1]}<small>${dte.getMonth()+1}/${dte.getDate()}</small></div>`;
+  }
+  periods.forEach(p=>{
+    h += `<div class="wslot"><b>第${p}节</b>${DATA.periods[p][0]}<br>${DATA.periods[p][1]}</div>`;
+    for(let w=1;w<=5;w++){
+      const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
+      const eff = lessonsOn(dte).find(l=>l.p==p);
+      const b = baseAt(w,p);
+      const isAdj = !!(eff && eff.adj);
+      const isOut = !eff && !!b;
+      h += `<div class="wcell${eff?" has":""}${w==tWd?" todaycol":""}${isOut?" lift":""}"
+              data-wd="${w}" data-p="${p}" data-date="${dstr(dte)}" ${eff?`data-cls="${eff.cls}"`:``}>
+              ${eff?`<div class="cls">${eff.cls}</div><div class="tm">${DATA.periods[p][0]}</div>${isAdj?'<div class="adj">（调）</div>':(isOut?'<div class="adj">调出</div>':'')}`:""}
+            </div>`;
+    }
+  });
+  h += `</div><div class='whint' id='weekHint'>点课程块选中，再点空格完成调课；也可直接按住拖动</div>`;
+  document.getElementById("weekHost").innerHTML = h;
+  document.getElementById("weekHost").style.display = "";
+  bindWeekGestures();
+}
+function weekShift(n){ weekOff += n; renderWeek(); }
+function baseAt(wd,p){ return DATA.lessons.find(l=>l[0]==wd&&l[1]==p); }
+
+let pick = null, wkDrag = null;
+function clearPick(){ pick = null; wkDrag = null;
+  document.querySelectorAll(".wcell.selpick,.wcell.pick,.wcell.lift").forEach(c=>c.classList.remove("selpick","pick","lift"));
+  const h = document.getElementById("weekHint"); if(h) h.textContent = "点课程块选中，再点空格完成调课；也可直接按住拖动";
+}
+function bindWeekGestures(){
+  const grid = document.getElementById("weekGrid"); if(!grid) return;
+  const cellAt = (x,y)=>{ const el = document.elementFromPoint(x,y); return el && el.classList.contains("wcell") ? el : null; };
+  function start(e,x,y){
+    const c = e.target.closest(".wcell"); if(!c) return;   // 任意格子都跟踪（空格子是调课目标）
+    wkDrag = { src:c, x0:x, y0:y, moved:false };
+  }
+  function move(e,x,y){
+    if(!wkDrag) return;
+    if(!wkDrag.moved && Math.hypot(x-wkDrag.x0,y-wkDrag.y0) < 12) return;
+    wkDrag.moved = true; e.preventDefault();
+    wkDrag.src.classList.add("lift");
+    document.querySelectorAll(".wcell.pick").forEach(c=>c.classList.remove("pick"));
+    const t = cellAt(x,y);
+    if(t && t!==wkDrag.src && (!t.classList.contains("has") || t.classList.contains("lift"))) t.classList.add("pick");
+  }
+  function end(e,x,y){
+    if(!wkDrag) return;
+    const d = wkDrag; wkDrag = null;
+    d.src.classList.remove("lift");
+    document.querySelectorAll(".wcell.pick").forEach(c=>c.classList.remove("pick"));
+    if(!d.moved){                       // 未移动 = 点选
+      if(pick && pick.el===d.src){ clearPick(); return; }
+      if(pick){
+        if(d.src.dataset.cls || d.src.classList.contains("has")){ toast("目标格子已有课"); return; }
+        const f = pick; clearPick(); openWeekMoveSheet(f, d.src); return;
+      }
+      if(d.src.classList.contains("lift")){ toast("这节课已调出，点它的落点格子可调回"); return; }
+      if(!d.src.dataset.cls){ return; }   // 空格子不是课程，忽略
+      pick = { wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls, el:d.src };
+      d.src.classList.add("selpick");
+      document.getElementById("weekHint").innerHTML = `已选 <b>${pick.cls}（周${WD[pick.wd-1]}第${pick.p}节）</b>，点一个空格子完成调课 <button style="border:none;background:#f0f0f0;border-radius:8px;padding:3px 10px;font-size:11px" onclick="clearPick()">取消</button>`;
+      return;
+    }
+    const t = cellAt(x,y);              // 拖动
+    if(t && t!==d.src && (!t.classList.contains("has") || t.classList.contains("lift")))
+      openWeekMoveSheet({ wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls }, t);
+    else if(t===d.src) clearPick();
+  }
+  grid.addEventListener("touchstart", e=>start(e, e.touches[0].clientX, e.touches[0].clientY), {passive:true});
+  grid.addEventListener("touchmove",  e=>move(e, e.touches[0].clientX, e.touches[0].clientY),  {passive:false});
+  grid.addEventListener("touchend",   e=>end(e, e.changedTouches[0].clientX, e.changedTouches[0].clientY));
+  grid.addEventListener("mousedown",  e=>start(e, e.clientX, e.clientY));
+  grid.addEventListener("mousemove",  e=>{ if(wkDrag) move(e, e.clientX, e.clientY); });
+  grid.addEventListener("mouseup",    e=>end(e, e.clientX, e.clientY));
+}
+function openWeekMoveSheet(f, tCell){
+  const toWd = +tCell.dataset.wd, toP = +tCell.dataset.p;
+  const fromDs = tCell.dataset.date && f.el ? f.el.dataset.date : null;
+  // 日期：源=源格子日期，目标=目标格子日期
+  const mon = weekMonday();
+  const fd = new Date(mon); fd.setDate(mon.getDate()+f.wd-1);
+  const td = new Date(mon); td.setDate(mon.getDate()+toWd-1);
+  const m = document.createElement("div");
+  m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>调课</h3>
+    <div class="desc"><b>${f.cls}</b>：周${WD[f.wd-1]}第${f.p}节（${fd.getMonth()+1}月${fd.getDate()}日）<br>
+    调到 周${WD[toWd-1]}第${toP}节（${td.getMonth()+1}月${td.getDate()}日，${DATA.periods[toP][0]}）</div>
+    <div class="note">仅当天：只改这一次；整学期：每周都按新时间上</div>
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove();clearPick()">取消</button></div>
+    <div class="row"><button class="b-amber" onclick="doWeekMove('temp',${f.wd},${f.p},${toWd},${toP},'${f.cls}')">仅当天（临时）</button></div>
+    <div class="row"><button class="b-ok" onclick="doWeekMove('perm',${f.wd},${f.p},${toWd},${toP},'${f.cls}')">整学期（长期）</button></div></div>`;
+  document.body.appendChild(m);
+}
+/* 调课统一入口：从源日期列表移除，加入目标日期列表；每格唯一不会重复 */
+function applyMove(fromDs, fromP, toDs, toP, cls){
+  HIST.push(JSON.stringify(OVR));
+  const la = (OVR[fromDs] || baseList(pdate(fromDs))).filter(l=>!(l.p==fromP && l.cls==cls));
+  const lb = (OVR[toDs]   || baseList(pdate(toDs))).filter(l=>l.p!=toP);
+  const baseTd = baseList(pdate(toDs));
+  lb.push({ p:toP, cls, adj: !baseTd.some(l=>l.p==toP && l.cls==cls) });
+  const baseFr = baseList(pdate(fromDs));
+  if(JSON.stringify(la.map(l=>[l.p,l.cls]))==JSON.stringify(baseFr.map(l=>[l.p,l.cls]))) delete OVR[fromDs]; else OVR[fromDs]=la;
+  if(JSON.stringify(lb.map(l=>[l.p,l.cls]))==JSON.stringify(baseTd.map(l=>[l.p,l.cls]))) delete OVR[toDs]; else OVR[toDs]=lb;
+  saveAll();
+}
+function undoLast(){
+  if(!HIST.length){ toast("没有可撤销的操作"); return; }
+  OVR = JSON.parse(HIST.pop()); saveAll();
+  toast("已撤销"); setTab(tab);
+}
+function doWeekMove(type, wd, p, toWd, toP, cls){
+  const mon = weekMonday();
+  const fd = new Date(mon); fd.setDate(mon.getDate()+wd-1);
+  const td = new Date(mon); td.setDate(mon.getDate()+toWd-1);
+  const fromDs = dstr(fd), toDs = dstr(td);
+  if(type=="perm"){
+    DATA.lessons = DATA.lessons.filter(l=>!(l[0]==wd&&l[1]==p));
+    DATA.lessons = DATA.lessons.filter(l=>!(l[0]==toWd&&l[1]==toP));
+    DATA.lessons.push([toWd,toP,cls]); OVR = {}; saveAll(); toast("已整学期调课（覆盖记录已重置）");
+  }else{
+    applyMove(fromDs, p, toDs, toP, cls);
+    toast(holidayOf(td) ? "已安排补课（仅 "+toDs+"）" : "已临时调课");
+  }
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  clearPick();
+  if(tab=="week") renderWeek(); else refreshCal();
+}
+
+function setTab(t){
+  ["Today","Week","Month"].forEach(x=>document.getElementById("tab"+x).classList.toggle("on", t.toLowerCase()==x.toLowerCase()));
+  if(t=="today"){
+    renderToday();
+    document.getElementById("todayHost").style.display = "";
+    document.getElementById("cal").style.display = "none";
+    document.getElementById("weekHost").style.display = "none";
+  }else if(t=="week"){
+    document.getElementById("todayHost").style.display = "none";
+    document.getElementById("cal").style.display = "none";
+    renderWeek();
+  }else{
+    document.getElementById("todayHost").style.display = "none";
+    document.getElementById("weekHost").style.display = "none";
+    document.getElementById("cal").style.display = "";   // 先显示容器，避免隐藏状态下计算宽度为0
+    if(!calendar) makeCalendar();
+    calendar.changeView("dayGridMonth");
+    setTimeout(()=>{ try{ calendar.updateSize(); }catch(e){} }, 60);
+  }
+  tab = t;
+}
+document.getElementById("tabToday").onclick = ()=>setTab("today");
+document.getElementById("tabWeek").onclick = ()=>setTab("week");
+document.getElementById("tabMonth").onclick = ()=>setTab("month");
+document.getElementById("hTitle").textContent = `${DATA.subject} · ${DATA.teacher}`;
+setTab("today");
+</script>
+</body>
+</html>
