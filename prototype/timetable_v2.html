@@ -221,19 +221,19 @@ function buildEvents(info){
       evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls}${l.adj?"（调）":""} ${DATA.periods[l.p][0]}`,
         start:`${ds}T${sh}:${sm}:00`, end:`${ds}T${eh}:${em}:00`,
         extendedProps:{ cls:l.cls, p:l.p, adj:!!l.adj },
-        classNames: l.adj ? "adj" : "les" });
+        classNames: l.adj ? "adj" : "les", order: 9 });   // 圆点优先级低，被折叠时先折叠圆点
     });
   }
   // 区间：跨日色条，标题直接可见
   RANGES.forEach(r=>{
     const e = new Date(r.end+"T00:00:00"); e.setDate(e.getDate()+1);
     evts.push({ id:"rg-"+r.id, title:r.title, start:r.start, end:dstr(e), allDay:true,
-                classNames:"rgev", editable:false, eventStartEditable:false });
+                classNames:"rgev", editable:false, eventStartEditable:false, order: 1 });
   });
   // 任务/日程：当日小字条
   TODOS.forEach(t=>{
     evts.push({ id:"td-"+t.id, title:(t.type=="memo"?"【日程】":"")+t.text, start:t.date, allDay:true,
-                classNames: t.type=="memo" ? "mgev" : "tdev", editable:false });
+                classNames: t.type=="memo" ? "mgev" : "tdev", editable:false, order: 1 });
   });
   return evts;
 }
@@ -266,7 +266,7 @@ function makeCalendar(){
     },
     editable: false,          // 调课统一在周视图操作
     displayEventTime: false,
-    dayMaxEvents: 5,
+    dayMaxEvents: 7,
     dateClick: (arg) => openDaySheet(arg.date),
     eventContent: (arg) => {
       if (arg.view.type == "dayGridMonth"){
