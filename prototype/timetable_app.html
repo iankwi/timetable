@@ -39,6 +39,7 @@
   .cell.droptarget { outline:2px dashed var(--green); outline-offset:-2px; background:#fff; }
   .cell.dragging { opacity:.35; }
   .cell.movedout { opacity:.45; }
+  .cell.selcell { outline:3px solid var(--green); outline-offset:-2px; background:#d9efe6; }
   .cell .cls { font-size:12px; font-weight:600; color:var(--green); }
   .cell .t { font-size:9px; color:#555; margin-top:1px; }
   .cell .adj { position:absolute; top:2px; right:3px; font-size:9px; color:var(--amber); }
@@ -232,17 +233,17 @@ function renderWeek(){
     for(let w=1;w<=5;w++){
       const b = baseAt(w,p);
       const dt = new Date(mon); dt.setDate(mon.getDate()+w-1);
-      const ds2 = dstr(dt);
-      const inAdj = ADJ.find(a=>a.toDate==ds2 && a.toP==p);
-      const outAdj = ADJ.find(a=>a.fromDate==ds2 && a.fromP==p);
-      const showCls = inAdj ? inAdj.cls : (b ? b[2] : "");
-      h += `<div class="cell${b||inAdj?" has":""}${w==todayWd?" todaycol":""}${w==selWd?" selon":""}${outAdj&&!inAdj?" movedout":""}"
-              data-wd="${w}" data-p="${p}" ${b?`data-cls="${b[2]}"`:""}>
-              ${showCls?`<div class="cls">${showCls}</div><div class="t">${DATA.periods[p][0]}</div>${inAdj?'<div class="adj">调</div>':(outAdj?'<div class="adj">调出</div>':"")}`:""}
+      const eff = lessonsOn(dt).find(l=>l.p==p);   // 该格当天实际上课
+      const showCls = eff ? eff.cls : "";
+      const isAdjIn  = eff && (!b || b[2]!=eff.cls);              // 与基课表不同 = 调入
+      const isAdjOut = !eff && !!b;                                // 基课表有但当天无 = 调出
+      h += `<div class="cell${eff?" has":""}${w==todayWd?" todaycol":""}${w==selWd?" selon":""}${isAdjOut?" movedout":""}"
+              data-wd="${w}" data-p="${p}" ${showCls?`data-cls="${showCls}"`:""}>
+              ${showCls?`<div class="cls">${showCls}</div><div class="t">${DATA.periods[p][0]}</div>${isAdjIn?'<div class="adj">调</div>':(isAdjOut?'<div class="adj">调出</div>':"")}`:""}
             </div>`;
     }
   });
-  h += `</div><div class="hint">长按有课格子拖到空格子：可选 仅当天调课 / 整学期调课</div>
+  h += `</div><div class="hint" id="dragHint">点一下有课格子，再点空格子即可调课</div>
         <div class="wpanel" id="wpanel"></div></div>`;
   main.innerHTML = h;
   renderWeekPanel();
@@ -264,63 +265,36 @@ function renderWeekPanel(){
 }
 function selWdF(w){ selWd = w; renderWeek(); }
 
-/* ---- 长按拖拽调课（触屏 + 鼠标） ---- */
+/* ---- 点选式调课：点源格子 → 点目标空格子 ---- */
+let pickSel = null;
 function bindDrag(){
   const grid = main.querySelector(".grid"); if(!grid) return;
-  bindDrag._lp = null;
-  const lpTimer = { get current(){ return bindDrag._lp; }, set v(t){ bindDrag._lp = t; } };
-  function cellFromPoint(x,y){
-    const el = document.elementFromPoint(x,y);
-    return el && el.classList.contains("cell") ? el : null;
-  }
-  function start(e, cx, cy){
-    const c = e.target.closest(".cell.has"); if(!c) return;
-    drag = { from:c, cls:c.dataset.cls, wd:+c.dataset.wd, p:+c.dataset.p, active:false, sx:cx, sy:cy };
-    lpTimer.v = setTimeout(()=>{
-      drag.active = true;
-      const g = document.createElement("div"); g.className="ghost"; g.textContent=`${drag.cls} 第${drag.p}节`;
-      document.body.appendChild(g); drag.ghost=g; moveGhost(cx,cy);
-      c.classList.add("dragging"); if(navigator.vibrate) navigator.vibrate(30);
-    }, 400);
-  }
-  function moveGhost(x,y){ if(drag&&drag.ghost){ drag.ghost.style.left=(x+14)+"px"; drag.ghost.style.top=(y-30)+"px"; } }
-  function move(e, cx, cy, isMouse){
-    if(!drag) return;
-    if(!drag.active){
-      if(isMouse && Math.hypot(cx-drag.sx,cy-drag.sy)>8){
-        lpTimer.v=null; drag.active=true;
-        const g=document.createElement("div"); g.className="ghost"; g.textContent=`${drag.cls} 第${drag.p}节`;
-        document.body.appendChild(g); drag.ghost=g; moveGhost(cx,cy);
-        drag.from.classList.add("dragging");
-        return;
-      }
-      if(Math.hypot(cx-drag.sx,cy-drag.sy)>10){ clearTimeout(lpTimer); drag=null; } return;
+  grid.addEventListener("click", e=>{
+    const c = e.target.closest(".cell"); if(!c) return;
+    const wd = +c.dataset.wd, p = +c.dataset.p;
+    if(!pickSel){
+      if(!c.classList.contains("has")) return;
+      if(c.classList.contains("movedout")){ toast("这节课已被调走，不能再次调出"); return; }
+      pickSel = { wd, p, cls: c.dataset.cls, el: c };
+      c.classList.add("selcell");
+      const dte = new Date(mondayOf(today)); dte.setDate(dte.getDate()+wd-1);
+      document.getElementById("dragHint").innerHTML =
+        `已选 <b>${pickSel.cls||""}（周${WD[wd-1]}第${p}节）</b>，点一个空格子完成调课 ` +
+        `<button style="border:none;background:#f0f0f0;border-radius:8px;padding:3px 10px;font-size:11px" onclick="cancelPick(event)">取消</button>`;
+    }else{
+      if(wd==pickSel.wd && p==pickSel.p){ cancelPick(); return; }
+      if(c.classList.contains("has") && !c.classList.contains("movedout")){ toast("目标格子已有课，请选空格子"); return; }
+      const from = pickSel; clearPickVisual();
+      openMoveSheet(from, c);
     }
-    e.preventDefault(); moveGhost(cx,cy);
-    main.querySelectorAll(".droptarget").forEach(x=>x.classList.remove("droptarget"));
-    const t = cellFromPoint(cx,cy);
-    if(t && !t.classList.contains("has")) t.classList.add("droptarget");
-  }
-  function end(e, cx, cy){
-    lpTimer.v = null;
-    if(!drag) return;
-    const d = drag; drag = null;
-    if(d.ghost) d.ghost.remove();
-    d.from.classList.remove("dragging");
-    main.querySelectorAll(".droptarget").forEach(x=>x.classList.remove("droptarget"));
-    if(!d.active) return;
-    const t = cellFromPoint(cx,cy);
-    if(t && !t.classList.contains("has")) openMoveSheet(d, t);
-  }
-  grid.addEventListener("touchstart", e=>start(e, e.touches[0].clientX, e.touches[0].clientY), {passive:true});
-  grid.addEventListener("touchmove",  e=>move(e, e.touches[0].clientX, e.touches[0].clientY),  {passive:false});
-  grid.addEventListener("touchend",   e=>end(e, e.changedTouches[0].clientX, e.changedTouches[0].clientY));
-  grid.addEventListener("touchcancel",()=>{ clearTimeout(lpTimer); if(drag&&drag.ghost) drag.ghost.remove(); drag=null;
-    main.querySelectorAll(".dragging,.droptarget").forEach(x=>x.classList.remove("dragging","droptarget")); });
-  grid.addEventListener("mousedown",  e=>start(e, e.clientX, e.clientY));
-  window.addEventListener("mousemove",e=>{ if(drag) move(e, e.clientX, e.clientY, true); });
-  window.addEventListener("mouseup",  e=>{ if(drag) end(e, e.clientX, e.clientY); });
+  });
 }
+function clearPickVisual(){
+  if(pickSel && pickSel.el) pickSel.el.classList.remove("selcell");
+  pickSel = null;
+  const h = document.getElementById("dragHint"); if(h) h.textContent = "点一下有课格子，再点空格子即可调课";
+}
+function cancelPick(e){ if(e) e.stopPropagation(); clearPickVisual(); }
 
 /* 调课确认：仅当天 / 整学期 */
 function openMoveSheet(d, toCell){
@@ -338,6 +312,7 @@ function openMoveSheet(d, toCell){
     <div class="desc" style="color:#999;font-size:12px">仅当天：只改 ${ds} 这天（临时/补课）；整学期：每周都按新时间上</div>
     <div class="row"><button class="b-amber" onclick="doMove('temp','${ds}',${d.p},'${toDs}',${toP},'${d.cls}')">仅当天（临时）</button></div>
     <div class="row"><button class="b-ok" onclick="doMove('perm',${d.wd},${d.p},${toWd},${toP},'${d.cls}')">整学期（长期）</button></div></div>`;
+  m.addEventListener("click", e=>{ if(e.target==m || e.target.textContent=="取消") clearPickVisual(); });
   document.body.appendChild(m);
 }
 // perm: (wd, p, toWd, toP, cls)；temp: (fromDate, fromP, toDate, toP, cls)
@@ -350,6 +325,8 @@ function doMove(type, a, b, c, d, cls){
     toast("已整学期调课");
   }else{
     const [fromDate,fromP,toDate,toP] = [a,b,c,d];
+    const inverse = ADJ.find(x=>x.toDate==fromDate && x.toP==fromP && x.fromDate==toDate && x.fromP==toP && x.cls==cls);
+    if(inverse){ ADJ = ADJ.filter(x=>x!==inverse); toast("已恢复原课表"); saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove()); setTab(tab); return; }
     ADJ = ADJ.filter(x=>!(x.fromDate==fromDate&&x.fromP==fromP));
     ADJ.push({id:Date.now(), fromDate, fromP, toDate, toP, cls}); saveAll();
     toast(`已临时调课：${fromDate} 第${fromP}节 调至 ${toDate} 第${toP}节`);
@@ -420,10 +397,9 @@ function addTodo(){
 /* ================= 切换 ================= */
 let tab = "today";
 function clearDragState(){
-  clearTimeout(bindDrag._lp);
   document.querySelectorAll(".ghost").forEach(g=>g.remove());
-  document.querySelectorAll(".dragging,.droptarget").forEach(c=>c.classList.remove("dragging","droptarget"));
-  drag = null;
+  document.querySelectorAll(".dragging,.droptarget,.selcell").forEach(c=>c.classList.remove("dragging","droptarget","selcell"));
+  drag = null; pickSel = null;
 }
 function setTab(t){
   clearDragState();
