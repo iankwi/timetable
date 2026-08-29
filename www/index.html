@@ -170,18 +170,29 @@ function saveAll(){ localStorage.setItem("tt2_data", JSON.stringify(DATA));
                     localStorage.setItem("tt2_range", JSON.stringify(RANGES));
                     writeWidget(); }
 
-/* 桌面小组件数据：未来7天课程写入本机存储（安卓小组件读取） */
+/* 桌面小组件数据：今天+明天（跨天自动接续），含课程/任务/日程/统计 */
 function writeWidget(){
   try{
-    const days = [];
-    for(let i=0;i<7;i++){
-      const d = new Date(today); d.setDate(d.getDate()+i);
-      const items = lessonsOn(d).map(l=>({ time: DATA.periods[l.p] ? DATA.periods[l.p][0] : "", cls: l.cls }));
-      days.push({ date: dstr(d), items });
+    function dayPayload(d){
+      const ds = dstr(d);
+      const now = new Date();
+      let done = 0;
+      const items = lessonsOn(d).map(function(l){
+        const t = DATA.periods[l.p] ? DATA.periods[l.p][0] : "";
+        const parts = t.split(":"); const v = (+parts[0])*60 + (+parts[1]);
+        const nowV = now.getHours()*60 + now.getMinutes();
+        const isNow = ds==dstr(now) && nowV>=v && nowV < v + 45;
+        if(ds==dstr(now) && nowV > v) done++;
+        return { time:t, cls:l.cls, now:isNow };
+      });
+      const todos = TODOS.filter(function(t){ return t.date==ds; })
+        .map(function(t){ return { done:!!t.done, text:(t.type=="memo"?"「日程」":"")+t.text }; });
+      return { date:ds, lessons:items, todos:todos, total:items.length };
     }
-    const payload = JSON.stringify({ days, teacher: DATA.teacher||DATA.subject||"我的课表" });
+    const d0 = new Date(); const d1 = new Date(); d1.setDate(d1.getDate()+1);
+    const payload = { today: dayPayload(d0), tomorrow: dayPayload(d1), teacher: DATA.teacher||DATA.subject||"我的课表" };
     const P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences;
-    if(P && P.set) P.set({ key:"widget_week", value: payload });
+    if(P && P.set) P.set({ key:"widget_week", value: JSON.stringify(payload) });
   }catch(e){}
 }
 setInterval(function(){ writeWidget(); }, 30*60*1000);   // 每30分钟刷新（跨天自动更新）

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小组件设计稿 v2（含任务/日程/统计）</title>
+<style>
+body { font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif; background:#5a6472; padding:16px; }
+h2 { color:#fff; font-size:15px; margin:18px 0 8px; font-weight:500; }
+.wallpaper { background:linear-gradient(135deg,#7fa3c0,#a8c3b5); border-radius:20px; padding:20px 16px; }
+.widget { background:#ffffff; border-radius:16px; padding:12px 14px; box-shadow:0 6px 18px rgba(0,0,0,.25); }
+.w-title { font-size:12px; color:#0f766e; font-weight:700; }
+.w-sub { font-size:10px; color:#8a8478; margin-top:1px; }
+.w-list { margin-top:6px; font-size:14px; color:#292524; line-height:1.7; }
+.w-list b { color:#0f766e; font-weight:600; }
+.w-now { background:#e2efec; border-radius:8px; padding:2px 6px; margin:0 -6px; }
+.note { color:#d6dde3; font-size:12px; margin-top:6px; line-height:1.6; }
+.tap { color:#ffd97a; font-size:12px; margin-top:4px; }
+</style></head><body>
+<h2>最终方案 · 今日课程 + 任务/日程 + 统计（点击跳转App）</h2>
+<div class="wallpaper"><div class="widget">
+  <div class="w-title">今日课程 · 共4节 · 剩3节</div>
+  <div class="w-sub">信息技术 · 9月2日 周三</div>
+  <div class="w-list">
+    <div>10:25  <b>四.6</b></div>
+    <div class="w-now">11:20  <b>六.3</b>  ← 进行中</div>
+    <div>14:00  <b>六.2</b></div>
+    <div>14:55  <b>六.6</b></div>
+    <div>☐ 批改作业</div>
+    <div>「日程」下午3点教研会议</div>
+  </div>
+</div></div>
+<p class="tap">👆 点击组件任意位置 → 打开App主页（可继续查看月历/详情）</p>
+<p class="note">信息结构：标题含 总节数/剩余统计（你勾选的）· 教师与日期 · 课程（时间+班级）· 当前节"← 进行中"标记 · 当日任务（☐/☑）与日程。<br>
+自动更新：调课/补课/假日/跨天 自动正确（读App实际课程计算结果）；每30分钟系统级刷新；数据变化即时推送。</p>
+</body></html>
