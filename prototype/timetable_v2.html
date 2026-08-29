@@ -70,6 +70,8 @@
   .fc-event.mgev, .fc-event.mgev .fc-event-main, .fc-event.mgev span { background-color:var(--green-l); color:var(--green) !important; }
   .fc-event.rgev { font-weight:600; border-radius:4px; }
   .fc-event.tdev, .fc-event.mgev { border-radius:4px; }
+  .mchip { display:block; font-size:10px; line-height:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mchip-adj { color:var(--amber) !important; }
   .fc-daygrid-day.cellrange { background:#fdf0e3; }
   .fc-daygrid-day.cellrange .fc-daygrid-day-number { color:var(--amber); }
   .mdot-adj { background:var(--amber); }
@@ -126,7 +128,7 @@
   <button id="tabMonth">月历</button>
 </nav>
 <main id="main"></main>
-<button class="fab" aria-label="添加待办" onclick="openTodoSheet()">+</button>
+<button class="fab" aria-label="添加日程任务" onclick="openDaySheet(today)">+</button>
 <div id="toast"></div>
 
 <script src="lib/fullcalendar.global.min.js"></script>
@@ -220,7 +222,7 @@ function buildEvents(info){
     lessonsOn(d).forEach(l=>{
       if(!DATA.periods[l.p]) return;   // 缺时间定义的节次跳过，避免渲染中断
       const [sh,sm] = DATA.periods[l.p][0].split(":"), [eh,em] = DATA.periods[l.p][1].split(":");
-      evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls}${l.adj?"（调）":""} ${DATA.periods[l.p][0]}`,
+      evts.push({ id:`les-${ds}-${l.p}`, title:`${l.cls}${l.adj?"（调）":""}`,
         start:`${ds}T${sh}:${sm}:00`, end:`${ds}T${eh}:${em}:00`,
         extendedProps:{ cls:l.cls, p:l.p, adj:!!l.adj },
         classNames: l.adj ? "adj" : "les", order: 9 });   // 圆点优先级低，被折叠时先折叠圆点
@@ -268,15 +270,18 @@ function makeCalendar(){
     },
     editable: false,          // 调课统一在周视图操作
     displayEventTime: false,
-    dayMaxEvents: 7,
+    dayMaxEvents: 3,
     dateClick: (arg) => openDaySheet(arg.date),
     eventContent: (arg) => {
       if (arg.view.type == "dayGridMonth"){
         const cn = arg.event.classNames;
         if(cn.includes("hol")) return { html: `<span class="mdot mdot-hol"></span>` };
         if(cn.includes("rgev") || cn.includes("tdev") || cn.includes("mgev"))
-          return { html: `<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${arg.event.title}</span>` };
-        return { html: `<span class="mdot${arg.event.extendedProps && arg.event.extendedProps.adj ? " mdot-adj" : ""}"></span>` };
+          return { html: `<span class="mchip">${arg.event.title}</span>` };
+        const ep = arg.event.extendedProps || {};
+        if(ep.cls) return { html: `<span class="mchip${ep.adj?" mchip-adj":""}">${ep.cls}${ep.adj?"（调）":""}</span>` };
+        if(cn.includes("hol")) return { html: `<span class="mchip mchip-hol">休</span>` };
+        return true;
       }
       return true;
     },
