@@ -130,11 +130,14 @@ const DEFAULT_DATA = {
   ]
 };
 let DATA = JSON.parse(localStorage.getItem("tt2_data") || "null") || DEFAULT_DATA;
-let ADJ  = JSON.parse(localStorage.getItem("tt2_adj")  || "[]"); // {id, fromDate, fromP, toDate, toP, cls}
+let OVR  = JSON.parse(localStorage.getItem("tt2_ovr") || "{}"); // 每日期完整课程覆盖 { "2026-09-02":[{p,cls,adj}] }
+let HIST = JSON.parse(localStorage.getItem("tt2_hist") || "[]"); // 撤销栈（OVR 快照）
 let TODOS = JSON.parse(localStorage.getItem("tt2_todos") || "[]");
+localStorage.removeItem("tt2_adj"); // 旧模型数据废弃
 
 function saveAll(){ localStorage.setItem("tt2_data", JSON.stringify(DATA));
-                    localStorage.setItem("tt2_adj", JSON.stringify(ADJ));
+                    localStorage.setItem("tt2_ovr", JSON.stringify(OVR));
+                    localStorage.setItem("tt2_hist", JSON.stringify(HIST.slice(-20)));
                     localStorage.setItem("tt2_todos", JSON.stringify(TODOS)); }
 function dstr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block";
@@ -158,7 +161,7 @@ document.getElementById("fileIn").addEventListener("change", e=>{
         semStart:j.semStart||j.start_date||DATA.semStart, semEnd:j.semEnd||j.end_date||DATA.semEnd,
         periods:p, lessons:j.lessons.map(l=>[l.weekday, l.period, l["class"]||l.cls||""]),
         holidays:j.holidays||DATA.holidays };
-      ADJ = []; saveAll();
+      OVR = {}; HIST = []; saveAll();
       document.getElementById("hTitle").textContent = `${DATA.subject} · ${DATA.teacher}`;
       toast("导入成功：" + j.lessons.length + " 节课，假日 " + DATA.holidays.length + " 天"); refreshCal();
     }catch(_){ toast("文件格式不对，请导入 timetable.json 格式"); }
@@ -168,12 +171,13 @@ document.getElementById("fileIn").addEventListener("change", e=>{
 
 /* ================= 课表计算 ================= */
 /* 某日期实际课程：假日隐藏基课；临时调课(补课)对任意日期生效 */
+function baseList(dt){
+  return (inSemester(dt) && !holidayOf(dt))
+    ? DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1], cls:l[2], adj:false})) : [];
+}
 function lessonsOn(dt){
   const ds = dstr(dt);
-  let ls = (inSemester(dt) && !holidayOf(dt))
-    ? DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1],cls:l[2],adj:""})) : [];
-  ADJ.filter(a=>a.fromDate==ds).forEach(a=>{ ls = ls.filter(l=>l.p!=a.fromP); });
-  ADJ.filter(a=>a.toDate==ds).forEach(a=>{ ls = ls.filter(l=>l.p!=a.toP); ls.push({p:a.toP, cls:a.cls, adj:"调"}); });
+  const ls = OVR[ds] ? OVR[ds].map(l=>({...l})) : baseList(dt);
   return ls.sort((a,b)=>a.p-b.p);
 }
 function baseAt(wd,p){ return DATA.lessons.find(l=>l[0]==wd&&l[1]==p); }
@@ -223,9 +227,7 @@ function makeCalendar(){
       if(!k) return "";
       return { html: `<div class="slotLabel"><b>第${k}节</b><span>${t}</span></div>` };
     },
-    editable: true,           // 原生触屏/鼠标拖拽
-    eventStartEditable: true,
-    durationEditable: false,   // 禁止拉伸改时长（防误触）
+    editable: false,          // 调课统一在周视图操作
     displayEventTime: false,
     dayMaxEventRows: 3,
     eventContent: (arg) => {
@@ -236,22 +238,6 @@ function makeCalendar(){
       return true;
     },
     events: (info, ok) => ok(buildEvents(info)),
-    eventDrop: (info) => handleDrop(info),
-    eventClick: (info) => {
-      const ds = dstr(info.event.start), t = `${String(info.event.start.getHours()).padStart(2,"0")}:${String(info.event.start.getMinutes()).padStart(2,"0")}`;
-      const p = Object.keys(DATA.periods).find(k=>DATA.periods[k][0]==t);
-      const adj = ADJ.find(x=>x.toDate==ds && x.toP==p);
-      if(!adj) return;
-      const m = document.createElement("div"); m.className = "mask";
-      m.innerHTML = `<div class="sheet"><h3>临时安排</h3>
-        <div class="desc"><b>${adj.cls}</b>：${shortDs(adj.fromDate)} 第${adj.fromP}节 临时调到 ${shortDs(ds)} 第${p}节</div>
-        <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">关闭</button></div>
-        <div class="row"><button class="b-amber" id="undoAdj">撤销（恢复原课表）</button></div></div>`;
-      document.body.appendChild(m);
-      m.querySelector("#undoAdj").onclick = ()=>{
-        ADJ = ADJ.filter(x=>x!==adj); saveAll(); m.remove(); refreshCal(); toast("已恢复原课表");
-      };
-    },
     datesSet: (s) => { document.getElementById("headSub").textContent =
       dstr(s.start) + " 至 " + dstr(new Date(s.end.getTime()-86400000)) +
       " · 拖动课程块可调课"; }
@@ -259,55 +245,6 @@ function makeCalendar(){
   calendar.render();
 }
 
-/* 拖拽落点 → 临时 / 整学期 */
-function handleDrop(info){
-  const nd = info.event.start, od = info.oldEvent.start;
-  const fromDs = dstr(od), toDs = dstr(nd);
-  // 拖拽落点会吸附到整点格，用最近节次匹配（45分钟内）而非精确相等
-  const nearestP = t => {
-    const [h,m] = t.split(":").map(Number); const v = h*60+m;
-    let best = null, bd = 1e9;
-    for(const k of Object.keys(DATA.periods)){
-      const [a,b] = DATA.periods[k][0].split(":").map(Number);
-      const d = Math.abs(a*60+b - v);
-      if(d < bd){ bd = d; best = k; }
-    }
-    return bd <= 45 ? best : null;
-  };
-  const toTime = `${String(nd.getHours()).padStart(2,"0")}:${String(nd.getMinutes()).padStart(2,"0")}`;
-  const fromTime = `${String(od.getHours()).padStart(2,"0")}:${String(od.getMinutes()).padStart(2,"0")}`;
-  const fp = nearestP(fromTime), tp = nearestP(toTime);
-  if(!fp || !tp){ toast("落点时间离任何一节课都太远，已还原"); info.revert(); return; }
-  if(fp == tp && fromDs == toDs){ info.revert(); return; }  // 原地不动
-  const cls = info.event.extendedProps.cls || "";
-  const m = document.createElement("div");
-  m.className = "mask"; 
-  m.innerHTML = `<div class="sheet"><h3>调课</h3>
-    <div class="desc"><b>${cls}</b>：${shortDs(fromDs)} 第${fp}节<br>调到 ${shortDs(toDs)} 第${tp}节（${DATA.periods[tp][0]}）${holidayOf(nd)?"<br><span style='color:var(--amber)'>目标日是假日：本次为补课安排</span>":""}</div>
-    <div class="note">仅当天：只改 ${fromDs}→${toDs} 这一次；整学期：每周都按新时间上</div>
-    <div class="row"><button class="b-cancel" id="mvCancel">取消</button></div>
-    <div class="row"><button class="b-amber" id="mvTemp">仅当天（临时）</button></div>
-    <div class="row"><button class="b-ok" id="mvPerm">整学期（长期）</button></div></div>`;
-  document.body.appendChild(m);
-  const close = ()=>{ m.remove(); };
-  m.querySelector("#mvCancel").onclick = ()=>{ info.revert(); close(); };
-  m.querySelector("#mvTemp").onclick = ()=>{
-    ADJ = ADJ.filter(x=>!(x.fromDate==fromDs&&x.fromP==fp));
-    const inv = ADJ.find(x=>x.toDate==fromDs&&x.toP==fp&&x.fromDate==toDs&&x.toP==tp&&x.cls==cls);
-    if(inv) ADJ = ADJ.filter(x=>x!==inv);
-    else ADJ.push({id:Date.now(), fromDate:fromDs, fromP:fp, toDate:toDs, toP:tp, cls});
-    saveAll(); info.revert(); close(); refreshCal();
-    toast(holidayOf(nd) ? "已安排补课（仅 "+toDs+"）" : "已临时调课");
-  };
-  m.querySelector("#mvPerm").onclick = ()=>{
-    const od_w = pdate(fromDs).getDay(), nd_w = pdate(toDs).getDay();
-    DATA.lessons = DATA.lessons.filter(l=>!(l[0]==od_w&&l[1]==fp));
-    DATA.lessons = DATA.lessons.filter(l=>!(l[0]==nd_w&&l[1]==tp));
-    DATA.lessons.push([nd_w,tp,cls]); saveAll();
-    ADJ = ADJ.filter(x=>!(x.fromDate==fromDs&&x.fromP==fp));
-    info.revert(); close(); refreshCal(); toast("已整学期调课");
-  };
-}
 function pdate(s){ return new Date(s+"T00:00:00"); }
 function shortDs(ds){ const d=pdate(ds); return (d.getMonth()+1)+"月"+d.getDate()+"日"; }
 
@@ -378,7 +315,8 @@ function renderWeek(){
   let h = `<div class='wnav'>
     <button aria-label="上一周" onclick="weekShift(-1)">‹</button>
     <b>${mon.getMonth()+1}月${mon.getDate()}日 – ${sun.getMonth()+1}月${sun.getDate()}日${sameWeek?"（本周）":""}</b>
-    <button aria-label="下一周" onclick="weekShift(1)">›</button></div>
+    <button aria-label="下一周" onclick="weekShift(1)">›</button>
+    <button aria-label="撤销上一步调课" onclick="undoLast()" ${HIST.length?"":"disabled style=\"opacity:.4\""}>撤销</button></div>
     <div id='weekGrid'><div class='whd'>节次</div>`;
   for(let w=1;w<=5;w++){
     const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
@@ -390,7 +328,7 @@ function renderWeek(){
       const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
       const eff = lessonsOn(dte).find(l=>l.p==p);
       const b = baseAt(w,p);
-      const isAdj = eff && (!b || b[2]!=eff.cls);
+      const isAdj = !!(eff && eff.adj);
       const isOut = !eff && !!b;
       h += `<div class="wcell${eff?" has":""}${w==tWd?" todaycol":""}${isOut?" lift":""}"
               data-wd="${w}" data-p="${p}" data-date="${dstr(dte)}" ${eff?`data-cls="${eff.cls}"`:``}>
@@ -439,6 +377,7 @@ function bindWeekGestures(){
         const f = pick; clearPick(); openWeekMoveSheet(f, d.src); return;
       }
       if(d.src.classList.contains("lift")){ toast("这节课已调出，点它的落点格子可调回"); return; }
+      if(!d.src.dataset.cls){ return; }   // 空格子不是课程，忽略
       pick = { wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls, el:d.src };
       d.src.classList.add("selpick");
       document.getElementById("weekHint").innerHTML = `已选 <b>${pick.cls}（周${WD[pick.wd-1]}第${pick.p}节）</b>，点一个空格子完成调课 <button style="border:none;background:#f0f0f0;border-radius:8px;padding:3px 10px;font-size:11px" onclick="clearPick()">取消</button>`;
@@ -474,6 +413,23 @@ function openWeekMoveSheet(f, tCell){
     <div class="row"><button class="b-ok" onclick="doWeekMove('perm',${f.wd},${f.p},${toWd},${toP},'${f.cls}')">整学期（长期）</button></div></div>`;
   document.body.appendChild(m);
 }
+/* 调课统一入口：从源日期列表移除，加入目标日期列表；每格唯一不会重复 */
+function applyMove(fromDs, fromP, toDs, toP, cls){
+  HIST.push(JSON.stringify(OVR));
+  const la = (OVR[fromDs] || baseList(pdate(fromDs))).filter(l=>!(l.p==fromP && l.cls==cls));
+  const lb = (OVR[toDs]   || baseList(pdate(toDs))).filter(l=>l.p!=toP);
+  const baseTd = baseList(pdate(toDs));
+  lb.push({ p:toP, cls, adj: !baseTd.some(l=>l.p==toP && l.cls==cls) });
+  const baseFr = baseList(pdate(fromDs));
+  if(JSON.stringify(la.map(l=>[l.p,l.cls]))==JSON.stringify(baseFr.map(l=>[l.p,l.cls]))) delete OVR[fromDs]; else OVR[fromDs]=la;
+  if(JSON.stringify(lb.map(l=>[l.p,l.cls]))==JSON.stringify(baseTd.map(l=>[l.p,l.cls]))) delete OVR[toDs]; else OVR[toDs]=lb;
+  saveAll();
+}
+function undoLast(){
+  if(!HIST.length){ toast("没有可撤销的操作"); return; }
+  OVR = JSON.parse(HIST.pop()); saveAll();
+  toast("已撤销"); setTab(tab);
+}
 function doWeekMove(type, wd, p, toWd, toP, cls){
   const mon = weekMonday();
   const fd = new Date(mon); fd.setDate(mon.getDate()+wd-1);
@@ -482,16 +438,10 @@ function doWeekMove(type, wd, p, toWd, toP, cls){
   if(type=="perm"){
     DATA.lessons = DATA.lessons.filter(l=>!(l[0]==wd&&l[1]==p));
     DATA.lessons = DATA.lessons.filter(l=>!(l[0]==toWd&&l[1]==toP));
-    DATA.lessons.push([toWd,toP,cls]); saveAll(); toast("已整学期调课");
+    DATA.lessons.push([toWd,toP,cls]); OVR = {}; saveAll(); toast("已整学期调课（覆盖记录已重置）");
   }else{
-    const inv = ADJ.find(x=>x.toDate==fromDs&&x.toP==p&&x.fromDate==toDs&&x.toP==toP&&x.cls==cls);
-    if(inv){ ADJ = ADJ.filter(x=>x!==inv); toast("已恢复原课表"); }
-    else{
-      ADJ = ADJ.filter(x=>!(x.fromDate==fromDs&&x.fromP==p&&x.cls==cls));
-      ADJ.push({id:Date.now(), fromDate:fromDs, fromP:p, toDate:toDs, toP, cls}); 
-      toast(holidayOf(td) ? "已安排补课（仅 "+toDs+"）" : "已临时调课");
-    }
-    saveAll();
+    applyMove(fromDs, p, toDs, toP, cls);
+    toast(holidayOf(td) ? "已安排补课（仅 "+toDs+"）" : "已临时调课");
   }
   document.querySelectorAll(".mask").forEach(x=>x.remove());
   clearPick();
