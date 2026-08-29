@@ -30,6 +30,7 @@
   .hd.selon { outline:2px solid var(--green); }
   .slot { background:#fff; border-radius:5px; padding:5px 1px; font-size:9px; color:#666; text-align:center; line-height:1.4; }
   .slot b { display:block; font-size:11px; color:#333; white-space:nowrap; }
+  .cell, .grid, .hd, .slot { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   .cell { background:#fff; border-radius:5px; min-height:60px; padding:3px 2px; display:flex; flex-direction:column;
           align-items:center; justify-content:center; border:none; position:relative; }
   .cell.has { background:var(--green-l); border-left:3px solid var(--green); }
@@ -175,9 +176,8 @@ function mondayOf(d){ const m=new Date(d); const k=(m.getDay()+6)%7; m.setDate(m
 
 /* 某日期的实际课程 = 基课表(按星期) + 临时调课(调出/调入按各自日期生效)，学期外为空 */
 function lessonsOn(dt){
-  if(!inSemester(dt)) return [];
   const ds = dstr(dt);
-  let ls = DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1],cls:l[2],adj:""}));
+  let ls = inSemester(dt) ? DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1],cls:l[2],adj:""})) : [];
   ADJ.filter(a=>a.fromDate==ds).forEach(a=>{ ls = ls.filter(l=>l.p!=a.fromP); });
   ADJ.filter(a=>a.toDate==ds).forEach(a=>{ ls = ls.filter(l=>l.p!=a.toP); ls.push({p:a.toP, cls:a.cls, adj:"调"}); });
   return ls.sort((a,b)=>a.p-b.p);
@@ -223,8 +223,10 @@ function renderWeek(){
   const periods = Object.keys(DATA.periods).map(Number).sort((a,b)=>a-b);
   const mon = mondayOf(today);
   let h = `<div id='weekView'><div class='grid'><div class="hd">节次</div>`;
-  for(let w=1;w<=5;w++)
-    h += `<button class="hd${w==todayWd?" today":""}${w==selWd?" selon":""}" onclick="selWdF(${w})">${w==todayWd?"今天·":""}周${WD[w-1]}</button>`;
+  for(let w=1;w<=5;w++){
+    const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
+    h += `<button class="hd${w==todayWd?" today":""}${w==selWd?" selon":""}" onclick="selWdF(${w})">${w==todayWd?"今天·":""}周${WD[w-1]}<small style="display:block;font-size:9px;font-weight:400">${dte.getMonth()+1}/${dte.getDate()}</small></button>`;
+  }
   periods.forEach(p=>{
     h += `<div class="slot"><b>第${p}节</b>${DATA.periods[p][0]}<br>${DATA.periods[p][1]}</div>`;
     for(let w=1;w<=5;w++){
@@ -252,10 +254,9 @@ function renderWeekPanel(){
   const dt = new Date(mon); dt.setDate(mon.getDate()+selWd-1);
   const ds = dstr(dt), el = document.getElementById("wpanel");
   if(!el) return;
-  const inSem = inSemester(dt);
-  const ls = inSem ? lessonsOn(dt) : DATA.lessons.filter(l=>l[0]==selWd).sort((a,b)=>a[1]-b[1]).map(l=>({wd:l[0],p:l[1],cls:l[2],adj:""}));
+  const ls = lessonsOn(dt);
   const ts = TODOS.filter(t=>t.date==ds);
-  el.innerHTML = `<h3>${fmt(dt)}${inSem?"":"（学期外 · 固定课表）"}${ds==dstr(today)?" · 今天":""}</h3>`
+  el.innerHTML = `<h3>${fmt(dt)}${inSemester(dt)?"":"（假期）"}${ds==dstr(today)?" · 今天":""}</h3>`
    + (ls.length ? ls.map(l=>`<div class="li">第${l.p}节 ${DATA.periods[l.p][0]}–${DATA.periods[l.p][1]} · ${DATA.subject} <b style="color:var(--green)">${l.cls}</b>${l.adj?"（临时调课）":""}</div>`).join("")
                 : "<div class='empty'>无课</div>")
    + (ts.length ? "<div class='sect' style='margin:8px 0 2px'>待办</div>" + ts.map(t=>`<div class="li">${t.done?"<span style='color:var(--green)'>■</span>":"□"} ${t.text}</div>`).join("") : "")
@@ -266,7 +267,8 @@ function selWdF(w){ selWd = w; renderWeek(); }
 /* ---- 长按拖拽调课（触屏 + 鼠标） ---- */
 function bindDrag(){
   const grid = main.querySelector(".grid"); if(!grid) return;
-  let lpTimer = null;
+  bindDrag._lp = null;
+  const lpTimer = { get current(){ return bindDrag._lp; }, set v(t){ bindDrag._lp = t; } };
   function cellFromPoint(x,y){
     const el = document.elementFromPoint(x,y);
     return el && el.classList.contains("cell") ? el : null;
@@ -274,7 +276,7 @@ function bindDrag(){
   function start(e, cx, cy){
     const c = e.target.closest(".cell.has"); if(!c) return;
     drag = { from:c, cls:c.dataset.cls, wd:+c.dataset.wd, p:+c.dataset.p, active:false, sx:cx, sy:cy };
-    lpTimer = setTimeout(()=>{
+    lpTimer.v = setTimeout(()=>{
       drag.active = true;
       const g = document.createElement("div"); g.className="ghost"; g.textContent=`${drag.cls} 第${drag.p}节`;
       document.body.appendChild(g); drag.ghost=g; moveGhost(cx,cy);
@@ -286,7 +288,7 @@ function bindDrag(){
     if(!drag) return;
     if(!drag.active){
       if(isMouse && Math.hypot(cx-drag.sx,cy-drag.sy)>8){
-        clearTimeout(lpTimer); drag.active=true;
+        lpTimer.v=null; drag.active=true;
         const g=document.createElement("div"); g.className="ghost"; g.textContent=`${drag.cls} 第${drag.p}节`;
         document.body.appendChild(g); drag.ghost=g; moveGhost(cx,cy);
         drag.from.classList.add("dragging");
@@ -300,7 +302,7 @@ function bindDrag(){
     if(t && !t.classList.contains("has")) t.classList.add("droptarget");
   }
   function end(e, cx, cy){
-    clearTimeout(lpTimer);
+    lpTimer.v = null;
     if(!drag) return;
     const d = drag; drag = null;
     if(d.ghost) d.ghost.remove();
@@ -313,6 +315,8 @@ function bindDrag(){
   grid.addEventListener("touchstart", e=>start(e, e.touches[0].clientX, e.touches[0].clientY), {passive:true});
   grid.addEventListener("touchmove",  e=>move(e, e.touches[0].clientX, e.touches[0].clientY),  {passive:false});
   grid.addEventListener("touchend",   e=>end(e, e.changedTouches[0].clientX, e.changedTouches[0].clientY));
+  grid.addEventListener("touchcancel",()=>{ clearTimeout(lpTimer); if(drag&&drag.ghost) drag.ghost.remove(); drag=null;
+    main.querySelectorAll(".dragging,.droptarget").forEach(x=>x.classList.remove("dragging","droptarget")); });
   grid.addEventListener("mousedown",  e=>start(e, e.clientX, e.clientY));
   window.addEventListener("mousemove",e=>{ if(drag) move(e, e.clientX, e.clientY, true); });
   window.addEventListener("mouseup",  e=>{ if(drag) end(e, e.clientX, e.clientY); });
@@ -324,7 +328,6 @@ function openMoveSheet(d, toCell){
   const mon = mondayOf(today);
   const dt = new Date(mon); dt.setDate(mon.getDate()+d.wd-1);
   const ds = dstr(dt);
-  const semOk = inSemester(dt);
   const dte = new Date(mon); dte.setDate(mon.getDate()+toWd-1);
   const toDs = dstr(dte);
   const m = document.createElement("div");
@@ -332,9 +335,8 @@ function openMoveSheet(d, toCell){
   m.innerHTML = `<div class="sheet"><h3>调课</h3>
     <div class="desc"><b>${d.cls}</b>：周${WD[d.wd-1]}第${d.p}节（${ds}）<br>调到 周${WD[toWd-1]}第${toP}节（${DATA.periods[toP][0]}）</div>
     <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button></div>
-    ${semOk
-      ? `<div class="row"><button class="b-amber" onclick="doMove('temp','${ds}',${d.p},'${toDs}',${toP},'${d.cls}')">仅当天（临时）</button></div>`
-      : `<div class="desc" style="color:#999;font-size:12px">${ds} 在学期外（无课），临时调课不适用，可选整学期调课</div>`}
+    <div class="desc" style="color:#999;font-size:12px">仅当天：只改 ${ds} 这天（临时/补课）；整学期：每周都按新时间上</div>
+    <div class="row"><button class="b-amber" onclick="doMove('temp','${ds}',${d.p},'${toDs}',${toP},'${d.cls}')">仅当天（临时）</button></div>
     <div class="row"><button class="b-ok" onclick="doMove('perm',${d.wd},${d.p},${toWd},${toP},'${d.cls}')">整学期（长期）</button></div></div>`;
   document.body.appendChild(m);
 }
@@ -417,7 +419,14 @@ function addTodo(){
 
 /* ================= 切换 ================= */
 let tab = "today";
+function clearDragState(){
+  clearTimeout(bindDrag._lp);
+  document.querySelectorAll(".ghost").forEach(g=>g.remove());
+  document.querySelectorAll(".dragging,.droptarget").forEach(c=>c.classList.remove("dragging","droptarget"));
+  drag = null;
+}
 function setTab(t){
+  clearDragState();
   tab = t;
   ["Today","Week","Month"].forEach(x=>document.getElementById("tab"+x).classList.toggle("on", t.toLowerCase()==x.toLowerCase()));
   ({today:renderToday, week:renderWeek, month:renderMonth})[t]();
