@@ -466,11 +466,12 @@ function setTab(t){
     document.getElementById("cal").style.display = "none";
     renderWeek();
   }else{
+    document.getElementById("todayHost").style.display = "none";
+    document.getElementById("weekHost").style.display = "none";
+    document.getElementById("cal").style.display = "";   // 先显示容器，避免隐藏状态下计算宽度为0
     if(!calendar) makeCalendar();
     calendar.changeView("dayGridMonth");
-    document.getElementById("todayHost").style.display = "none";
-    document.getElementById("cal").style.display = "";
-    document.getElementById("weekHost").style.display = "none";
+    setTimeout(()=>{ try{ calendar.updateSize(); }catch(e){} }, 60);
   }
   tab = t;
 }
