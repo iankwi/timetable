@@ -65,9 +65,11 @@
   .fc-event { border:none; border-radius:5px; font-size:11px; padding:1px 3px; }
   .fc-daygrid-event { margin:1px 0; }
   .mdot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin:1px; }
-  .fc-event.rgev { background:#fdf0e3; color:var(--amber); font-weight:600; border-radius:4px; }
-  .fc-event.tdev { background:#eef2ff; color:#4a5ac2; border-radius:4px; }
-  .fc-event.mgev { background:var(--green-l); color:var(--green); border-radius:4px; }
+  .fc-event.rgev, .fc-event.rgev .fc-event-main, .fc-event.rgev span { background-color:#fdf0e3; color:var(--amber) !important; }
+  .fc-event.tdev, .fc-event.tdev .fc-event-main, .fc-event.tdev span { background-color:#eef2ff; color:#4a5ac2 !important; }
+  .fc-event.mgev, .fc-event.mgev .fc-event-main, .fc-event.mgev span { background-color:var(--green-l); color:var(--green) !important; }
+  .fc-event.rgev { font-weight:600; border-radius:4px; }
+  .fc-event.tdev, .fc-event.mgev { border-radius:4px; }
   .fc-daygrid-day.cellrange { background:#fdf0e3; }
   .fc-daygrid-day.cellrange .fc-daygrid-day-number { color:var(--amber); }
   .mdot-adj { background:var(--amber); }
