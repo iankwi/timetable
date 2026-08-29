@@ -122,7 +122,8 @@
 <body>
 <header>
   <div style="flex:1"><h1 id="hTitle">信息技术 · 郑文娟</h1><div class="sub" id="headSub"></div></div>
-  <button onclick="document.getElementById('fileIn').click()">导入课表</button>
+  <button onclick="openImportSheet()">导入课表</button>
+  <button onclick="openSettingsSheet()">设置</button>
   <input type="file" id="fileIn" accept=".json,application/json">
 </header>
 <nav>
@@ -177,7 +178,18 @@ function inSemester(d){ const ds=dstr(d); return ds>=DATA.semStart && ds<=DATA.s
 const WD = ["一","二","三","四","五","六","日"];
 const fmt = d => `${d.getMonth()+1}月${d.getDate()}日 周${["日","一","二","三","四","五","六"][d.getDay()]}`;
 
-/* 导入课表 JSON（可含 holidays） */
+/* 导入课表 JSON（可选同时清空个人记录） */
+window._impClear = false;
+function openImportSheet(){
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>导入课表</h3>
+    <div class="desc" style="font-size:13px;color:#66707a">选择 timetable.json 格式的文件（谁使用就导入谁的课表）</div>
+    <label class="todo" style="margin:6px 0 10px"><input type="checkbox" id="impClear">
+      <span>同时清空个人记录（待办、日程、区间、调课）</span></label>
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="window._impClear=document.getElementById('impClear').checked; document.getElementById('fileIn').click(); this.closest('.mask').remove()">选择文件并导入</button></div></div>`;
+  document.body.appendChild(m);
+}
 document.getElementById("fileIn").addEventListener("change", e=>{
   const f = e.target.files[0]; if(!f) return;
   const r = new FileReader();
@@ -191,7 +203,9 @@ document.getElementById("fileIn").addEventListener("change", e=>{
         semStart:j.semStart||j.start_date||DATA.semStart, semEnd:j.semEnd||j.end_date||DATA.semEnd,
         periods:p, lessons:j.lessons.map(l=>[l.weekday, l.period, l["class"]||l.cls||""]),
         holidays:j.holidays||DATA.holidays };
-      OVR = {}; HIST = []; saveAll();
+      OVR = {}; HIST = [];
+      if(window._impClear){ TODOS = []; RANGES = []; }
+      saveAll();
       document.getElementById("hTitle").textContent = `${DATA.subject} · ${DATA.teacher}`;
       toast("导入成功：" + j.lessons.length + " 节课，假日 " + DATA.holidays.length + " 天"); refreshCal();
     }catch(_){ toast("文件格式不对，请导入 timetable.json 格式"); }
@@ -354,6 +368,31 @@ function addTodo(){
   TODOS.push({ id:Date.now(), date, text, done:false });
   saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
   toast("已添加待办"); setTab(tab);
+}
+
+/* ================= 系统设置 ================= */
+function openSettingsSheet(){
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>设置</h3>
+    <div class="desc" style="font-size:13px;color:#66707a">${DATA.subject} · ${DATA.teacher} · 学期 ${DATA.semStart} 至 ${DATA.semEnd}</div>
+    <div class="row"><button class="b-cancel" style="justify-content:center;display:flex" onclick="this.closest('.mask').remove()">关闭</button>
+    <button class="b-ok" style="background:#eef2ff;color:#4a5ac2" onclick="doClearPersonal()">清空个人记录</button></div>
+    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#fdeaea;color:var(--amber);font-weight:600" onclick="doFullReset()">恢复默认课表并清空全部数据</button></div>
+    <div class="note" style="font-size:11px;color:#999;margin-top:10px">我的课表 v1.0 · 数据仅保存在本机</div></div>`;
+  document.body.appendChild(m);
+}
+function doClearPersonal(){
+  if(!confirm("确定清空全部待办、日程、区间和调课记录？（课表保留）")) return;
+  TODOS = []; RANGES = []; OVR = {}; HIST = []; saveAll();
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("个人记录已清空"); setTab(tab);
+}
+function doFullReset(){
+  if(!confirm("将恢复内置默认课表（郑文娟）并清空全部个人数据，确定？")) return;
+  DATA = JSON.parse(JSON.stringify(DEFAULT_DATA)); TODOS = []; RANGES = []; OVR = {}; HIST = [];
+  saveAll(); document.getElementById("hTitle").textContent = DATA.subject + " · " + DATA.teacher;
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已恢复默认"); setTab(tab);
 }
 
 /* ================= 日期面板与添加菜单（参考 Timeblocks 日程表模块） ================= */

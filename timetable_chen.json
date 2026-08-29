@@ -1,0 +1,114 @@
+{
+  "school": "荔城区西天尾中心小学",
+  "semester": "2026-2027学年第一学期",
+  "teacher": "陈婉清",
+  "subject": "信息技术",
+  "start_date": "2026-09-01",
+  "end_date": "2027-01-27",
+  "lessons": [
+    {
+      "weekday": 1,
+      "period": 3,
+      "start": "10:25",
+      "end": "11:05",
+      "subject": "信息技术",
+      "class": "五.1"
+    },
+    {
+      "weekday": 1,
+      "period": 4,
+      "start": "11:20",
+      "end": "12:00",
+      "subject": "信息技术",
+      "class": "五.5"
+    },
+    {
+      "weekday": 2,
+      "period": 5,
+      "start": "14:00",
+      "end": "14:40",
+      "subject": "信息技术",
+      "class": "三.2"
+    },
+    {
+      "weekday": 3,
+      "period": 3,
+      "start": "10:25",
+      "end": "11:05",
+      "subject": "信息技术",
+      "class": "三.4"
+    },
+    {
+      "weekday": 3,
+      "period": 4,
+      "start": "11:20",
+      "end": "12:00",
+      "subject": "信息技术",
+      "class": "五.6"
+    },
+    {
+      "weekday": 3,
+      "period": 5,
+      "start": "14:00",
+      "end": "14:40",
+      "subject": "信息技术",
+      "class": "三.3"
+    },
+    {
+      "weekday": 3,
+      "period": 6,
+      "start": "14:55",
+      "end": "15:35",
+      "subject": "信息技术",
+      "class": "五.3"
+    },
+    {
+      "weekday": 4,
+      "period": 3,
+      "start": "10:25",
+      "end": "11:05",
+      "subject": "信息技术",
+      "class": "四.8"
+    },
+    {
+      "weekday": 4,
+      "period": 5,
+      "start": "14:00",
+      "end": "14:40",
+      "subject": "信息技术",
+      "class": "五.2"
+    },
+    {
+      "weekday": 4,
+      "period": 6,
+      "start": "14:55",
+      "end": "15:35",
+      "subject": "信息技术",
+      "class": "三.1"
+    },
+    {
+      "weekday": 5,
+      "period": 3,
+      "start": "10:25",
+      "end": "11:05",
+      "subject": "信息技术",
+      "class": "三.5"
+    },
+    {
+      "weekday": 5,
+      "period": 4,
+      "start": "11:20",
+      "end": "12:00",
+      "subject": "信息技术",
+      "class": "三.6"
+    },
+    {
+      "weekday": 5,
+      "period": 6,
+      "start": "14:55",
+      "end": "15:35",
+      "subject": "信息技术",
+      "class": "五.4"
+    }
+  ]
+}
