@@ -63,6 +63,8 @@
   .fc-event { border:none; border-radius:5px; font-size:11px; padding:1px 3px; }
   .fc-daygrid-event { margin:1px 0; }
   .mdot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin:1px; }
+  .fc-daygrid-day.cellrange { background:#fdf0e3; }
+  .fc-daygrid-day.cellrange .fc-daygrid-day-number { color:var(--amber); }
   .mdot-adj { background:var(--amber); }
   .mdot-hol { background:#e05a4e; }
   .fc-event.les { background:var(--green-l); color:var(--green); border-left:3px solid var(--green); }
@@ -146,13 +148,15 @@ Object.keys(DEFAULT_DATA.periods).forEach(k=>{ if(!DATA.periods[k]) DATA.periods
 if(!DATA.holidays) DATA.holidays = DEFAULT_DATA.holidays;
 let OVR  = JSON.parse(localStorage.getItem("tt2_ovr") || "{}"); // 每日期完整课程覆盖 { "2026-09-02":[{p,cls,adj}] }
 let HIST = JSON.parse(localStorage.getItem("tt2_hist") || "[]"); // 撤销栈（OVR 快照）
-let TODOS = JSON.parse(localStorage.getItem("tt2_todos") || "[]");
+let TODOS = JSON.parse(localStorage.getItem("tt2_todos") || "[]");   // {id,date,text,done,type:'task'|'memo'}
+let RANGES = JSON.parse(localStorage.getItem("tt2_range") || "[]");  // {id,title,start,end}
 localStorage.removeItem("tt2_adj"); // 旧模型数据废弃
 
 function saveAll(){ localStorage.setItem("tt2_data", JSON.stringify(DATA));
                     localStorage.setItem("tt2_ovr", JSON.stringify(OVR));
                     localStorage.setItem("tt2_hist", JSON.stringify(HIST.slice(-20)));
-                    localStorage.setItem("tt2_todos", JSON.stringify(TODOS)); }
+                    localStorage.setItem("tt2_todos", JSON.stringify(TODOS));
+                    localStorage.setItem("tt2_range", JSON.stringify(RANGES)); }
 function dstr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block";
                      clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2400); }
@@ -245,6 +249,7 @@ function makeCalendar(){
     editable: false,          // 调课统一在周视图操作
     displayEventTime: false,
     dayMaxEvents: 4,
+    dateClick: (arg) => openDaySheet(arg.date),
     eventContent: (arg) => {
       if (arg.view.type == "dayGridMonth"){
         if(arg.event.classNames.includes("hol")) return { html: `<span class="mdot mdot-hol"></span>` };
@@ -253,6 +258,10 @@ function makeCalendar(){
       return true;
     },
     events: (info, ok) => ok(buildEvents(info)),
+    dayCellClassNames: (arg) => {
+      const ds = dstr(arg.date);
+      return RANGES.some(r=>r.start<=ds && ds<=r.end) ? ["cellrange"] : [];
+    },
     datesSet: (s) => { document.getElementById("headSub").textContent =
       dstr(s.start) + " 至 " + dstr(new Date(s.end.getTime()-86400000)) +
       " · 拖动课程块可调课"; }
@@ -279,6 +288,10 @@ function renderToday(){
       <div class="info"><div class="cls">${DATA.subject} ${l.cls}</div><div class="p">第${l.p}节${l.adj?" · 临时安排":""}</div></div>
       ${now>=s&&now<e?"<span class='tag'>进行中</span>":""}</div>`;
   });
+  const rs = RANGES.filter(r=>r.start<=ds && ds<=r.end);
+  if(rs.length) h += "<div class='sect'>进行中的区间</div>" + rs.map(r=>
+    `<div class="todo"><span>${r.text===undefined?r.title:r.title}</span>
+     <button class="del" aria-label="删除区间" onclick="delRange(${r.id})">✕</button></div>`).join("");
   h += "<div class='sect'>今日待办</div><div id='todayTodos'></div></div>";
   document.getElementById("todayHost").innerHTML = h;
   const ts = TODOS.filter(t=>t.date==ds);
@@ -310,6 +323,71 @@ function addTodo(){
   TODOS.push({ id:Date.now(), date, text, done:false });
   saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
   toast("已添加待办"); setTab(tab);
+}
+
+/* ================= 日期面板与添加菜单（参考 Timeblocks 日程表模块） ================= */
+function openDaySheet(dt){
+  const ds = dstr(dt);
+  const ls = lessonsOn(dt), ts = TODOS.filter(t=>t.date==ds);
+  const rg = RANGES.filter(r=>r.start<=ds && ds<=r.end);
+  const m = document.createElement("div"); m.className = "mask";
+  const fmtD = (d)=>{const x=pdate(d);return (x.getMonth()+1)+"月"+x.getDate()+"日";};
+  m.innerHTML = `<div class="sheet" style="max-height:70dvh;overflow:auto">
+    <h3>${fmt(dt)}${holidayOf(dt)?" · "+holidayOf(dt).name+"（休）":""}</h3>
+    <div class="desc">${ls.length
+      ? ls.map(l=>`第${l.p}节 ${DATA.periods[l.p][0]} · <b style="color:var(--green)">${l.cls}</b>${l.adj?"（调）":""}`).join("<br>")
+      : "无课"}</div>
+    ${rg.length?`<div class="note" style="color:var(--amber)">区间：${rg.map(r=>r.title+"（"+fmtD(r.start)+"–"+fmtD(r.end)+"）").join("、")}</div>`:""}
+    ${ts.length?`<div class="note">待办/日程：${ts.map(t=>(t.done?"☑ ":"☐ ")+t.text).join("、")}</div>`:""}
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">关闭</button></div>
+    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:var(--green-l);color:var(--green);font-weight:600" onclick="addScheduleSheet('${ds}')">日程</button>
+    <button style="flex:1;padding:11px;border:none;border-radius:8px;background:#eef2ff;color:#4a5ac2;font-weight:600" onclick="openTodoSheet('${ds}')">任务</button></div>
+    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:#fdf0e3;color:var(--amber);font-weight:600" onclick="addRangeSheet('${ds}')">区间</button></div></div>`;
+  document.body.appendChild(m);
+}
+function addScheduleSheet(ds){
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  const m = document.createElement("div"); m.className = "mask";
+  m.innerHTML = `<div class="sheet"><h3>添加日程 · ${ds}</h3>
+    <input type="date" id="scDate" value="${ds}">
+    <textarea id="scText" placeholder="当日事项，如：下午3点教研会议"></textarea>
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveSchedule()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveSchedule(){
+  const date = document.getElementById("scDate").value;
+  const text = document.getElementById("scText").value.trim();
+  if(!text){ toast("请填写日程内容"); return; }
+  TODOS.push({ id:Date.now(), date, text, done:false, type:"memo" });
+  saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已添加日程"); setTab(tab);
+}
+function addRangeSheet(ds){
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  const m = document.createElement("div"); m.className = "mask";
+  const d2 = new Date(ds+"T00:00:00"); d2.setDate(d2.getDate()+6);
+  m.innerHTML = `<div class="sheet"><h3>添加区间 · 跨日任务</h3>
+    <input type="date" id="rgStart" value="${ds}">
+    <input type="date" id="rgEnd" value="${dstr(d2)}">
+    <textarea id="rgText" placeholder="如：比赛集训、备考复习"></textarea>
+    <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove()">取消</button>
+    <button class="b-ok" onclick="saveRange()">保存</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveRange(){
+  const start = document.getElementById("rgStart").value;
+  const end = document.getElementById("rgEnd").value;
+  const text = document.getElementById("rgText").value.trim();
+  if(!text){ toast("请填写区间名称"); return; }
+  if(end < start){ toast("结束日期不能早于开始日期"); return; }
+  RANGES.push({ id:Date.now(), title:text, start, end });
+  saveAll(); document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("已添加区间 " + start + " 至 " + end); setTab(tab);
+}
+function delRange(id){
+  if(!confirm("删除这个区间？")) return;
+  RANGES = RANGES.filter(r=>r.id!=id); saveAll(); setTab(tab);
 }
 
 /* ================= 切换 ================= */
