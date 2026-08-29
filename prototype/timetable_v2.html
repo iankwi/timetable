@@ -65,6 +65,9 @@
   .fc-event { border:none; border-radius:5px; font-size:11px; padding:1px 3px; }
   .fc-daygrid-event { margin:1px 0; }
   .mdot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin:1px; }
+  .fc-event.rgev { background:#fdf0e3; color:var(--amber); font-weight:600; border-radius:4px; }
+  .fc-event.tdev { background:#eef2ff; color:#4a5ac2; border-radius:4px; }
+  .fc-event.mgev { background:var(--green-l); color:var(--green); border-radius:4px; }
   .fc-daygrid-day.cellrange { background:#fdf0e3; }
   .fc-daygrid-day.cellrange .fc-daygrid-day-number { color:var(--amber); }
   .mdot-adj { background:var(--amber); }
@@ -221,6 +224,17 @@ function buildEvents(info){
         classNames: l.adj ? "adj" : "les" });
     });
   }
+  // 区间：跨日色条，标题直接可见
+  RANGES.forEach(r=>{
+    const e = new Date(r.end+"T00:00:00"); e.setDate(e.getDate()+1);
+    evts.push({ id:"rg-"+r.id, title:r.title, start:r.start, end:dstr(e), allDay:true,
+                classNames:"rgev", editable:false, eventStartEditable:false });
+  });
+  // 任务/日程：当日小字条
+  TODOS.forEach(t=>{
+    evts.push({ id:"td-"+t.id, title:(t.type=="memo"?"【日程】":"")+t.text, start:t.date, allDay:true,
+                classNames: t.type=="memo" ? "mgev" : "tdev", editable:false });
+  });
   return evts;
 }
 
@@ -252,11 +266,14 @@ function makeCalendar(){
     },
     editable: false,          // 调课统一在周视图操作
     displayEventTime: false,
-    dayMaxEvents: 4,
+    dayMaxEvents: 5,
     dateClick: (arg) => openDaySheet(arg.date),
     eventContent: (arg) => {
       if (arg.view.type == "dayGridMonth"){
-        if(arg.event.classNames.includes("hol")) return { html: `<span class="mdot mdot-hol"></span>` };
+        const cn = arg.event.classNames;
+        if(cn.includes("hol")) return { html: `<span class="mdot mdot-hol"></span>` };
+        if(cn.includes("rgev") || cn.includes("tdev") || cn.includes("mgev"))
+          return { html: `<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${arg.event.title}</span>` };
         return { html: `<span class="mdot${arg.event.extendedProps && arg.event.extendedProps.adj ? " mdot-adj" : ""}"></span>` };
       }
       return true;
