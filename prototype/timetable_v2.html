@@ -167,7 +167,24 @@ function saveAll(){ localStorage.setItem("tt2_data", JSON.stringify(DATA));
                     localStorage.setItem("tt2_ovr", JSON.stringify(OVR));
                     localStorage.setItem("tt2_hist", JSON.stringify(HIST.slice(-20)));
                     localStorage.setItem("tt2_todos", JSON.stringify(TODOS));
-                    localStorage.setItem("tt2_range", JSON.stringify(RANGES)); }
+                    localStorage.setItem("tt2_range", JSON.stringify(RANGES));
+                    writeWidget(); }
+
+/* 桌面小组件数据：未来7天课程写入本机存储（安卓小组件读取） */
+function writeWidget(){
+  try{
+    const days = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(today); d.setDate(d.getDate()+i);
+      const items = lessonsOn(d).map(l=>({ time: DATA.periods[l.p] ? DATA.periods[l.p][0] : "", cls: l.cls }));
+      days.push({ date: dstr(d), items });
+    }
+    const payload = JSON.stringify({ days, teacher: DATA.teacher||DATA.subject||"我的课表" });
+    const P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences;
+    if(P && P.set) P.set({ key:"widget_week", value: payload });
+  }catch(e){}
+}
+setInterval(function(){ writeWidget(); }, 30*60*1000);   // 每30分钟刷新（跨天自动更新）
 function dstr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block";
                      clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2400); }

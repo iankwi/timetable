@@ -345,3 +345,14 @@ APK 深度静态分析（strings/classes 全量）确认其日程表模块实体
 
 验证：设置表单预填 ✓ 编辑教师/学期保存后标题同步 ✓ 按钮齐全。
 产物：我的课表-v1.3.apk。用户手机上的旧版"清空个人记录看似无效"是预期语义（课程不属个人记录），v1.3 按钮文字已写明范围。
+
+## 2026-08-30 第 30 轮：桌面小组件（今日课程）v1.4
+
+实现（R10 部分落地）：
+- 原生：TodayWidgetProvider（AppWidgetProvider），读 CapacitorStorage 中 widget_week JSON，渲染 今日课程列表（时间+班级）+ 教师名；30 分钟系统级自动刷新（跨天自动更新）；res/layout/widget_today.xml + drawable/widget_bg.xml（圆角白底描边）+ res/xml/widget_today_info.xml；Manifest 注册 receiver
+- JS：writeWidget() 计算未来7天课程（含临时调课/假日）写入 Capacitor Preferences（key widget_week）；saveAll/启动后/每30分钟触发
+- 网页版无 Capacitor 环境自动跳过（window.Capacitor 守卫）
+- 产物：我的课表-v1.4.apk（4.3MB，含 @capacitor/preferences 8.0.1）
+
+用户使用：桌面长按 → 添加小组件 → 我的课表 → 今日课程；打开 App 导入课表后小组件自动有数据。
+未验证项：小组件实际渲染需真机添加后确认（无模拟器）。
