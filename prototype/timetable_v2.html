@@ -292,7 +292,8 @@ function baseList(dt){
 }
 function lessonsOn(dt){
   const ds = dstr(dt);
-  const ls = OVR[ds] ? OVR[ds].map(l=>({...l})) : baseList(dt);
+  // 显示用：覆盖记录优先（含临时调课/补课）；无覆盖时，仅学期内非假日返回基课表模板
+  const ls = OVR[ds] ? OVR[ds].map(l=>({...l})) : (inSemester(dt) && !holidayOf(dt) ? baseList(dt) : []);
   return ls.sort((a,b)=>a.p-b.p);
 }
 function baseAt(wd,p){ return DATA.lessons.find(l=>l[0]==wd&&l[1]==p); }
@@ -723,6 +724,8 @@ function bindWeekGestures(){
     if(t && t!==wkDrag.src && (!t.classList.contains("has") || t.classList.contains("lift"))) t.classList.add("pick");
   }
   function end(e,x,y){
+    // 周课表网格内的一切按下都消费掉，不冒泡到 main 的 swipeEnd（避免误翻周）
+    if(e && e.stopPropagation) e.stopPropagation();
     if(wkPending){ clearTimeout(wkPending.longPress); wkPending = null; return; }  // 未确认调课 = 纯点击
     if(!wkDrag) return;
     const d = wkDrag; wkDrag = null;
