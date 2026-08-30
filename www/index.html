@@ -15,14 +15,17 @@
   header .sub { font-size:12px; color:#8a8478; margin-top:2px; }
   header button { background:#eee9dd; border:none; color:#57534e; font-size:13px;
                   border-radius:10px; padding:9px 12px; margin-left:6px; }
-  nav { display:flex; background:#fff; border-bottom:1px solid var(--line); flex:none; }
-  nav button { flex:1; padding:11px; border:none; background:none; font-size:14px; color:#888; border-bottom:2px solid transparent; }
-  nav button.on { color:var(--green); border-bottom-color:var(--green); font-weight:600; }
+  nav { display:flex; background:#fff; border-top:1px solid var(--line); flex:none;
+         padding-bottom:env(safe-area-inset-bottom); box-shadow:0 -2px 8px rgba(87,64,28,.05); z-index:8; }
+  nav button { flex:1; min-height:56px; padding:6px 0; border:none; background:none; font-size:14px; color:#8a9aa8;
+               border-top:2px solid transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+               -webkit-tap-highlight-color:transparent; }
+  nav button.on { color:var(--green); border-top-color:var(--green); font-weight:600; }
   nav button { transition:color .2s, border-color .2s; }
   button { transition:transform .15s, box-shadow .2s, background .2s; }
   button:active { transform:scale(.97); }
-  main { flex:1; overflow:auto; padding:8px 6px 90px; }
-  .fab { position:fixed; right:16px; bottom:24px; width:54px; height:54px; border-radius:50%;
+  main { flex:1; overflow:auto; padding:8px 6px 12px; }
+  .fab { position:fixed; right:16px; bottom:calc(84px + env(safe-area-inset-bottom)); width:54px; height:54px; border-radius:50%;
          background:var(--green); color:#fff; font-size:26px; border:none; box-shadow:0 4px 14px rgba(15,118,110,.30); z-index:9; }
 
   /* FullCalendar 适配 */
@@ -31,16 +34,21 @@
   .fc .fc-daygrid-day-number { font-size:15px; font-weight:500; padding:6px 8px; color:#3a4046; }
   .fc .fc-scrollgrid-section-header td, .fc .fc-col-header-cell { border:none; }
   .fc .fc-col-header-cell-cushion { color:#999; font-weight:400; }
-  .fc .fc-daygrid-day-frame { padding:2px; }
+  .fc .fc-daygrid-day-frame { padding:6px 4px; min-height:56px; }
   .fc .fc-daygrid-event { border-radius:4px; margin:2px 1px; font-size:10px; padding:2px 5px; min-height:0; }
-  .fc .fc-daygrid-day.fc-day-today { background:#e2efec; }
+  .fc .fc-daygrid-day.fc-day-today { background:#f6fbf9; }
+  .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background:var(--green); color:#fff; font-weight:600;
+      width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; }
   .fc .fc-col-header-cell-cushion { font-size:12px; padding:6px 0; }
   .fc { font-size:12px; }
   .fc .fc-toolbar.fc-header-toolbar { margin-bottom:8px; flex-wrap:wrap; gap:4px; }
   .fc .fc-button { background:var(--green-l); border:none; color:var(--green); font-size:12px; padding:4px 10px; }
   .fc .fc-button-primary:not(:disabled).fc-button-active { background:var(--green); color:#fff; }
   .fc .fc-toolbar-title { font-size:15px; font-weight:600; }
-  .fc-theme-standard td, .fc-theme-standard th, .fc-theme-standard .fc-scrollgrid { border-color:#eee; }
+  /* 减法：去掉月历实线网格，仅用极淡横线分行，减少视觉疲劳 */
+  .fc-theme-standard td, .fc-theme-standard th, .fc-theme-standard .fc-scrollgrid { border:none; }
+  .fc .fc-daygrid-day { border-bottom:1px solid #f2f5f4; }
+  .fc .fc-daygrid-day:nth-child(7n) { border-right:none; }
   .fc .fc-timegrid-slot { height:8px; }
   .fc .fc-timegrid-slot-label-frame { font-size:10px; }
   /* 周视图：节次行网格（参考 WakeUp 等课表项目：行=节次，列=星期，格高固定） */
@@ -137,12 +145,12 @@
   <button onclick="openSettingsSheet()">设置</button>
   <input type="file" id="fileIn" accept=".json,application/json">
 </header>
+<main id="main"></main>
 <nav>
   <button id="tabToday" class="on">今天</button>
   <button id="tabWeek">周课表</button>
   <button id="tabMonth">月历</button>
 </nav>
-<main id="main"></main>
 <button class="fab" aria-label="添加日程任务" onclick="openDaySheet(today)">+</button>
 <div id="toast"></div>
 
