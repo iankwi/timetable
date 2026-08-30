@@ -679,7 +679,7 @@ function renderWeek(){
 function weekShift(n){ weekOff += n; renderWeek(); }
 function baseAt(wd,p){ return DATA.lessons.find(l=>l[0]==wd&&l[1]==p); }
 
-let pick = null, wkDrag = null;
+let pick = null, wkDrag = null, wkPending = null;
 function clearPick(){ pick = null; wkDrag = null;
   document.querySelectorAll(".wcell.selpick,.wcell.pick,.wcell.lift").forEach(c=>c.classList.remove("selpick","pick","lift"));
   const h = document.getElementById("weekHint"); if(h) h.textContent = "点课程块选中，再点空格完成调课；也可直接按住拖动";
@@ -688,19 +688,42 @@ function bindWeekGestures(){
   const grid = document.getElementById("weekGrid"); if(!grid) return;
   const cellAt = (x,y)=>{ const el = document.elementFromPoint(x,y); return el && el.classList.contains("wcell") ? el : null; };
   function start(e,x,y){
-    const c = e.target.closest(".wcell"); if(!c) return;   // 任意格子都跟踪（空格子是调课目标）
-    wkDrag = { src:c, x0:x, y0:y, moved:false };
+    const c = e.target.closest(".wcell"); if(!c) return;
+    // 不立即设 wkDrag，先记录起点；移动后根据方向判定是"横向滑动"还是"调课"
+    wkPending = { src:c, x0:x, y0:y, moved:false, longPress:null };
+    wkPending.longPress = setTimeout(function(){
+      if(wkPending && !wkPending.moved){       // 长按 300ms 未移动 = 确认调课意图
+        wkDrag = { src: wkPending.src, x0: wkPending.x0, y0: wkPending.y0, moved:false };
+        wkPending = null;
+        if(navigator.vibrate) navigator.vibrate(20);
+      }
+    }, 300);
   }
   function move(e,x,y){
+    // pending 阶段：根据方向判定"横向滑动"还是"调课"
+    if(wkPending){
+      const dx = x - wkPending.x0, dy = y - wkPending.y0;
+      const dist = Math.hypot(dx, dy);
+      if(dist < 10) return;                    // 还在死区
+      clearTimeout(wkPending.longPress);
+      if(Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 30){
+        // 横向滑动 = 翻周，取消调课意图
+        wkPending = null;
+        return;                                 // 让全局 swipeEnd 处理
+      }
+      // 非横向 = 确认调课意图
+      wkDrag = { src: wkPending.src, x0: wkPending.x0, y0: wkPending.y0, moved:true };
+      wkPending = null;
+    }
     if(!wkDrag) return;
-    if(!wkDrag.moved && Math.hypot(x-wkDrag.x0,y-wkDrag.y0) < 12) return;
-    wkDrag.moved = true; e.preventDefault();
+    e.preventDefault();
     wkDrag.src.classList.add("lift");
     document.querySelectorAll(".wcell.pick").forEach(c=>c.classList.remove("pick"));
     const t = cellAt(x,y);
     if(t && t!==wkDrag.src && (!t.classList.contains("has") || t.classList.contains("lift"))) t.classList.add("pick");
   }
   function end(e,x,y){
+    if(wkPending){ clearTimeout(wkPending.longPress); wkPending = null; return; }  // 未确认调课 = 纯点击
     if(!wkDrag) return;
     const d = wkDrag; wkDrag = null;
     d.src.classList.remove("lift");
@@ -839,7 +862,7 @@ document.getElementById("tabMonth").onclick = ()=>setTab("month");
   }
   function swipeEnd(dx, dy){
     if(Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)*1.5) return;
-    if(wkDrag) return;
+    if(wkDrag) return;   // 正在调课拖动时不翻周
     const toRight = dx > 0;   // 右滑=去上一个
     if(tab == "week"){
       if(src && src.closest && src.closest(".wcell.has")) return;
