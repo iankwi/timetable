@@ -713,14 +713,14 @@ function bindWeekGestures(){
       }
       if(d.src.classList.contains("lift")){ toast("这节课已调出，点它的落点格子可调回"); return; }
       if(!d.src.dataset.cls){ return; }   // 空格子不是课程，忽略
-      pick = { wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls, el:d.src };
+      pick = { wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls, el:d.src, date:d.src.dataset.date };
       d.src.classList.add("selpick");
       document.getElementById("weekHint").innerHTML = `已选 <b>${pick.cls}（周${WD[pick.wd-1]}第${pick.p}节）</b>，点一个空格子完成调课 <button style="border:none;background:#f0f0f0;border-radius:8px;padding:3px 10px;font-size:11px" onclick="clearPick()">取消</button>`;
       return;
     }
     const t = cellAt(x,y);              // 拖动
     if(t && t!==d.src && (!t.classList.contains("has") || t.classList.contains("lift")))
-      openWeekMoveSheet({ wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls }, t);
+      openWeekMoveSheet({ wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls, date:d.src.dataset.date }, t);
     else if(t===d.src) clearPick();
   }
   grid.addEventListener("touchstart", e=>start(e, e.touches[0].clientX, e.touches[0].clientY), {passive:true});
@@ -744,7 +744,7 @@ function openWeekMoveSheet(f, tCell){
     调到 周${WD[toWd-1]}第${toP}节（${td.getMonth()+1}月${td.getDate()}日，${DATA.periods[toP][0]}）</div>
     <div class="note">仅当天：只改这一次；整学期：每周都按新时间上</div>
     <div class="row"><button class="b-cancel" onclick="this.closest('.mask').remove();clearPick()">取消</button></div>
-    <div class="row"><button class="b-amber" onclick="doWeekMove('temp',${f.wd},${f.p},${toWd},${toP},'${f.cls}')">仅当天（临时）</button></div>
+    <div class="row"><button class="b-amber" onclick="doWeekMove('temp',${f.wd},${f.p},${toWd},${toP},'${f.cls}','${f.date||''}','${tCell.dataset.date}')">仅当天（临时）</button></div>
     <div class="row"><button class="b-ok" onclick="doWeekMove('perm',${f.wd},${f.p},${toWd},${toP},'${f.cls}')">整学期（长期）</button></div></div>`;
   document.body.appendChild(m);
 }
@@ -757,6 +757,16 @@ function restoreSnap(s){
 }
 function applyMove(fromDs, fromP, toDs, toP, cls){
   HIST.push(snapshot());
+  if(fromDs === toDs){
+    // 同一天调课：同一列表先移除源、再写入目标，避免双课程
+    const ds = fromDs;
+    const base = baseList(pdate(ds));
+    let ls = (OVR[ds] || base).filter(l=>!(l.p==fromP && l.cls==cls));
+    ls = ls.filter(l=>l.p!=toP);
+    ls.push({ p:toP, cls, adj: !base.some(l=>l.p==toP && l.cls==cls) });
+    if(JSON.stringify(ls.map(l=>[l.p,l.cls]))==JSON.stringify(base.map(l=>[l.p,l.cls]))) delete OVR[ds]; else OVR[ds]=ls;
+    saveAll(); return;
+  }
   const la = (OVR[fromDs] || baseList(pdate(fromDs))).filter(l=>!(l.p==fromP && l.cls==cls));
   const lb = (OVR[toDs]   || baseList(pdate(toDs))).filter(l=>l.p!=toP);
   const baseTd = baseList(pdate(toDs));
@@ -771,11 +781,13 @@ function undoLast(){
   restoreSnap(HIST.pop()); saveAll();
   toast("已撤销"); setTab(tab);
 }
-function doWeekMove(type, wd, p, toWd, toP, cls){
+function doWeekMove(type, wd, p, toWd, toP, cls, fromDate, toDate){
   const mon = weekMonday();
   const fd = new Date(mon); fd.setDate(mon.getDate()+wd-1);
   const td = new Date(mon); td.setDate(mon.getDate()+toWd-1);
-  const fromDs = dstr(fd), toDs = dstr(td);
+  // 优先使用格子实际日期（临时调课），整学期用周几
+  const fromDs = fromDate || dstr(fd);
+  const toDs   = toDate   || dstr(td);
   if(type=="perm"){
     HIST.push(snapshot());
     DATA.lessons = DATA.lessons.filter(l=>!(l[0]==wd&&l[1]==p));

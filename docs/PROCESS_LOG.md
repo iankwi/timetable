@@ -463,3 +463,28 @@ APK 深度静态分析（strings/classes 全量）确认其日程表模块实体
 | 保存提醒设置 | 已有定义，功能依赖系统权限，本地逻辑正常 |
 
 产物：我的课表-v2.1.apk
+
+## 2026-08-30 第 40 轮：调课双课程根因彻底修复（v2.2）
+
+用户报告：把四.6 调到当天下午第7节，出现两个四.6。这是调课 bug 的第三次复现，前两次修复未根治。
+
+根因（三个叠加因素）：
+1. **同天调课**：fromDs==toDs 时，applyMove 分两次写同一个 OVR 键（先写源移除、后写目标添加），后者覆盖前者 → 源位置的课又回来了
+2. **doWeekMove 日期来源不可靠**：用 weekMonday() 推算日期，而非格子上的实际 data-date
+3. **拖动路径未传 date**：openWeekMoveSheet 拖动调用只传 wd/p/cls，缺 date → f.date 为 undefined → 回退 weekMonday() → 日期可能错
+
+修复（三处同时）：
+- applyMove 增加 fromDs===toDs 同天分支：同一列表先移除源、再写入目标，一次写回
+- doWeekMove 增加 fromDate/toDate 参数，优先用格子实际日期
+- 拖动路径 openWeekMoveSheet 补传 date:d.src.dataset.date
+
+完整回归测试（4场景，全部通过）：
+| 场景 | 验证 | 结果 |
+|------|------|------|
+| S1 同天调课（四.6 周三P3→P7） | 当天唯一无重复、OVR只一个键 | ✅ dup:1, ovrKeys:['9/9'] |
+| S2 跨天临时（四.6 周三→周四） | 源0、目标1 | ✅ wed:0, thu:1 |
+| S3 整学期（六.2 周三P5→周一P6） | 源删、目标加、入栈 | ✅ lessons:0, moved:1, hist:1 |
+| S4 撤销整学期 | 源恢复、目标消失 | ✅ restored:1, gone:0 |
+
+"其他周次课程不见了"的澄清：非代码 bug，是测试残留 OVR 脏数据覆盖了那几天的课表。已清除。基课表本身完整（14节）。
+产物：我的课表-v2.2.apk
