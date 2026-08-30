@@ -44,7 +44,7 @@
   .fc .fc-timegrid-slot { height:8px; }
   .fc .fc-timegrid-slot-label-frame { font-size:10px; }
   /* 周视图：节次行网格（参考 WakeUp 等课表项目：行=节次，列=星期，格高固定） */
-  #weekGrid { display:grid; grid-template-columns:52px repeat(5,1fr); gap:3px; background:#ffffff;
+  #weekGrid { display:grid; grid-template-columns:44px repeat(7,1fr); gap:2px; background:#ffffff;
               border-radius:10px; padding:8px 5px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   .whd { text-align:center; font-size:11px; color:#666; padding:6px 0; border-radius:9px; }
   .whd small { display:block; font-size:9px; color:#999; }
@@ -632,21 +632,23 @@ function renderWeek(){
     <button aria-label="下一周" onclick="weekShift(1)">›</button>
     <button aria-label="撤销上一步调课" onclick="undoLast()" ${HIST.length?"":"disabled style=\"opacity:.4\""}>撤销</button></div>
     <div id='weekGrid'><div class='whd'>节次</div>`;
-  for(let w=1;w<=5;w++){
+  for(let w=1;w<=7;w++){
     const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
-    h += `<div class="whd${w==tWd?" today":""}">${sameWeek&&w==tWd?"今天":"周"}${WD[w-1]}<small>${dte.getMonth()+1}/${dte.getDate()}</small></div>`;
+    h += `<div class="whd${w==tWd?" today":""}">${sameWeek&&w==tWd?"今天":(w<=5?"周":"")}${WD[w-1]}<small>${dte.getMonth()+1}/${dte.getDate()}</small></div>`;
   }
   periods.forEach(p=>{
     h += `<div class="wslot"><b>第${p}节</b>${DATA.periods[p][0]}<br>${DATA.periods[p][1]}</div>`;
-    for(let w=1;w<=5;w++){
+    for(let w=1;w<=7;w++){
       const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
-      const eff = lessonsOn(dte).find(l=>l.p==p);
-      const b = baseAt(w,p);
+      const b = baseAt(w,p);                        // 基课表模板
+      const eff = lessonsOn(dte).find(l=>l.p==p);   // 当天实际（含临时调课）
+      const ds = dstr(dte);
+      const showCls = eff ? eff.cls : (b ? b[2] : "");
       const isAdj = !!(eff && eff.adj);
-      const isOut = !eff && !!b;
-      h += `<div class="wcell${eff?" has":""}${w==tWd?" todaycol":""}${isOut?" lift":""}"
-              data-wd="${w}" data-p="${p}" data-date="${dstr(dte)}" ${eff?`data-cls="${eff.cls}"`:``}>
-              ${eff?`<div class="cls">${eff.cls}</div><div class="tm">${DATA.periods[p][0]}</div>${isAdj?'<div class="adj">（调）</div>':(isOut?'<div class="adj">调出</div>':'')}`:""}
+      const isOut = !eff && !!b && !!OVR[ds];        // 仅当天真正被调整走才标"调出"
+      h += `<div class="wcell${showCls?" has":""}${w==tWd?" todaycol":""}${isOut?" lift":""}"
+              data-wd="${w}" data-p="${p}" data-date="${ds}" ${showCls?`data-cls="${showCls}"`:``}>
+              ${showCls?`<div class="cls">${showCls}</div><div class="tm">${DATA.periods[p][0]}</div>${isAdj?'<div class="adj">（调）</div>':(isOut?'<div class="adj">调出</div>':'')}`:""}
             </div>`;
     }
   });
