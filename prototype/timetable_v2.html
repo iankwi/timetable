@@ -59,8 +59,11 @@
   .wcell .tm { font-size:9px; color:#667; }
   .wcell .adj { font-size:9px; color:var(--amber); }
   .wcell.lift { opacity:.4; }
-  #weekGrid.vacation .wcell.has { opacity:.45; }
-  #weekGrid.vacation .wcell.has .cls { color:#8a8478; }
+  .wcell.dayvac { opacity:.45; }
+  .wcell.dayvac .cls { color:#a8a89a; }
+  .wcell.holcell { opacity:.5; }
+  .wcell.holcell .cls { color:#bb4a3c; }
+  .wcell.holcell .adj { color:#bb4a3c; }
   .vacation-banner { font-size:11px; color:var(--amber); text-align:center; padding:2px 0 6px; }
   .wcell.pick { outline:2px dashed var(--green); outline-offset:-2px; background:#fff; }
   .wcell.selpick { outline:3px solid var(--green); outline-offset:-2px; background:#d9efe6; }
@@ -630,16 +633,16 @@ function renderWeek(){
   const periods = Object.keys(DATA.periods).map(Number).sort((a,b)=>a-b);
   const tWd = (today.getDay()>=1&&today.getDay()<=5) ? today.getDay() : -1;
   const sameWeek = dstr(mon)==dstr(mondayOf(today));
-  const vacation = [1,2,3,4,5].every(function(i){ const d = new Date(mon); d.setDate(mon.getDate()+i-1); return !inSemester(d); });
   let h = `<div class='wnav'>
     <button aria-label="上一周" onclick="weekShift(-1)">‹</button>
-    <b>${mon.getMonth()+1}月${mon.getDate()}日 – ${sun.getMonth()+1}月${sun.getDate()}日${sameWeek?"（本周）":""}${vacation?" · 假期":""}</b>
+    <b>${mon.getMonth()+1}月${mon.getDate()}日 – ${sun.getMonth()+1}月${sun.getDate()}日${sameWeek?"（本周）":""}</b>
     <button aria-label="下一周" onclick="weekShift(1)">›</button>
     <button aria-label="撤销上一步调课" onclick="undoLast()" ${HIST.length?"":"disabled style=\"opacity:.4\""}>撤销</button></div>
-    <div id='weekGrid' class="${vacation?"vacation":""}"><div class='whd'>节次</div>`;
+    <div id='weekGrid'><div class='whd'>节次</div>`;
   for(let w=1;w<=7;w++){
     const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
-    h += `<div class="whd${w==tWd?" today":""}">${sameWeek&&w==tWd?"今天":(w<=5?"周":"")}${WD[w-1]}<small>${dte.getMonth()+1}/${dte.getDate()}</small></div>`;
+    const dVac = !inSemester(dte);
+    h += `<div class="whd${w==tWd?" today":""}">${sameWeek&&w==tWd?"今天":(w<=5?"周":"")}${WD[w-1]}${dVac?" · 假":""}<small>${dte.getMonth()+1}/${dte.getDate()}</small></div>`;
   }
   periods.forEach(p=>{
     h += `<div class="wslot"><b>第${p}节</b>${DATA.periods[p][0]}<br>${DATA.periods[p][1]}</div>`;
@@ -648,16 +651,20 @@ function renderWeek(){
       const b = baseAt(w,p);                        // 基课表模板
       const eff = lessonsOn(dte).find(l=>l.p==p);   // 当天实际（含临时调课）
       const ds = dstr(dte);
+      const hol = holidayOf(dte);                   // 该日是否为法定假日
       const showCls = eff ? eff.cls : (b ? b[2] : "");
+      const dVac = !inSemester(dte);              // 该日是否在学期外
       const isAdj = !!(eff && eff.adj);
       const isOut = !eff && !!b && !!OVR[ds];        // 仅当天真正被调整走才标"调出"
-      h += `<div class="wcell${showCls?" has":""}${w==tWd?" todaycol":""}${isOut?" lift":""}"
+      const isHol = !!(hol && showCls);              // 假日日的课：显示但标记休
+      h += `<div class="wcell${showCls?" has":""}${w==tWd?" todaycol":""}${isOut?" lift":""}${dVac&&showCls?" dayvac":""}${isHol?" holcell":""}"
               data-wd="${w}" data-p="${p}" data-date="${ds}" ${showCls?`data-cls="${showCls}"`:``}>
-              ${showCls?`<div class="cls">${showCls}</div><div class="tm">${DATA.periods[p][0]}</div>${isAdj?'<div class="adj">（调）</div>':(isOut?'<div class="adj">调出</div>':'')}`:""}
+              ${showCls?`<div class="cls">${showCls}</div><div class="tm">${DATA.periods[p][0]}</div>${isAdj?'<div class="adj">（调）</div>':(isHol?'<div class="adj">休</div>':(isOut?'<div class="adj">调出</div>':''))}`:""}
             </div>`;
     }
   });
-  h += `</div>${vacation?"<div class='vacation-banner'>假期周 · 以下为固定课表模板（弱化显示），如需补课可直接拖动调课</div>":""}<div class='whint' id='weekHint'>点课程块选中，再点空格完成调课；也可直接按住拖动</div>`;
+  const vacDays = [1,2,3,4,5,6,7].filter(function(i){ const d = new Date(mon); d.setDate(mon.getDate()+i-1); return !inSemester(d); }).length;
+  h += `</div>${vacDays?"<div class='vacation-banner'>灰色弱化日期为假期（学期外）· 固定课表模板可见，如需补课可直接拖动调课</div>":""}<div class='whint' id='weekHint'>点课程块选中，再点空格完成调课；也可直接按住拖动</div>`;
   document.getElementById("weekHost").innerHTML = h;
   document.getElementById("weekHost").style.display = "";
   bindWeekGestures();
