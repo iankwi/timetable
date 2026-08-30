@@ -490,6 +490,13 @@ function saveTimetableInfo(){
   toast("课表信息已保存"); setTab(tab);
 }
 
+function doClearPersonal(){
+  if(!confirm("确定清空全部待办、日程、区间和调课记录？（课表保留）")) return;
+  TODOS = []; RANGES = []; OVR = {}; HIST = []; saveAll();
+  document.querySelectorAll(".mask").forEach(x=>x.remove());
+  toast("个人记录已清空"); setTab(tab);
+}
+
 function doClearTimetable(){
   if(!confirm("清除当前课表数据？个人记录（待办/日程/区间）保留。")) return;
   DATA.lessons = []; DATA.teacher = ""; DATA.subject = "";
