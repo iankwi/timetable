@@ -286,9 +286,9 @@ document.getElementById("fileIn").addEventListener("change", e=>{
 
 /* ================= 课表计算 ================= */
 /* 某日期实际课程：假日隐藏基课；临时调课(补课)对任意日期生效 */
+/* 基课表模板：始终按星期几返回固定课表（假期过滤只影响"当天实际课程"显示，不影响调课数据） */
 function baseList(dt){
-  return (inSemester(dt) && !holidayOf(dt))
-    ? DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1], cls:l[2], adj:false})) : [];
+  return DATA.lessons.filter(l=>l[0]==dt.getDay()).map(l=>({p:l[1], cls:l[2], adj:false}));
 }
 function lessonsOn(dt){
   const ds = dstr(dt);
@@ -742,8 +742,14 @@ function openWeekMoveSheet(f, tCell){
   document.body.appendChild(m);
 }
 /* 调课统一入口：从源日期列表移除，加入目标日期列表；每格唯一不会重复 */
+/* 撤销栈：保存完整快照（基课表+覆盖），临时/整学期调课都可撤销 */
+function snapshot(){ return JSON.stringify({ L: DATA.lessons, O: OVR }); }
+function restoreSnap(s){
+  const x = JSON.parse(s);
+  DATA.lessons = x.L; OVR = x.O;
+}
 function applyMove(fromDs, fromP, toDs, toP, cls){
-  HIST.push(JSON.stringify(OVR));
+  HIST.push(snapshot());
   const la = (OVR[fromDs] || baseList(pdate(fromDs))).filter(l=>!(l.p==fromP && l.cls==cls));
   const lb = (OVR[toDs]   || baseList(pdate(toDs))).filter(l=>l.p!=toP);
   const baseTd = baseList(pdate(toDs));
@@ -755,7 +761,7 @@ function applyMove(fromDs, fromP, toDs, toP, cls){
 }
 function undoLast(){
   if(!HIST.length){ toast("没有可撤销的操作"); return; }
-  OVR = JSON.parse(HIST.pop()); saveAll();
+  restoreSnap(HIST.pop()); saveAll();
   toast("已撤销"); setTab(tab);
 }
 function doWeekMove(type, wd, p, toWd, toP, cls){
@@ -764,6 +770,7 @@ function doWeekMove(type, wd, p, toWd, toP, cls){
   const td = new Date(mon); td.setDate(mon.getDate()+toWd-1);
   const fromDs = dstr(fd), toDs = dstr(td);
   if(type=="perm"){
+    HIST.push(snapshot());
     DATA.lessons = DATA.lessons.filter(l=>!(l[0]==wd&&l[1]==p));
     DATA.lessons = DATA.lessons.filter(l=>!(l[0]==toWd&&l[1]==toP));
     DATA.lessons.push([toWd,toP,cls]); OVR = {}; saveAll(); toast("已整学期调课（覆盖记录已重置）");
