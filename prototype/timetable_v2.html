@@ -59,6 +59,9 @@
   .wcell .tm { font-size:9px; color:#667; }
   .wcell .adj { font-size:9px; color:var(--amber); }
   .wcell.lift { opacity:.4; }
+  #weekGrid.vacation .wcell.has { opacity:.45; }
+  #weekGrid.vacation .wcell.has .cls { color:#8a8478; }
+  .vacation-banner { font-size:11px; color:var(--amber); text-align:center; padding:2px 0 6px; }
   .wcell.pick { outline:2px dashed var(--green); outline-offset:-2px; background:#fff; }
   .wcell.selpick { outline:3px solid var(--green); outline-offset:-2px; background:#d9efe6; }
   .wnav { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 8px; }
@@ -267,6 +270,7 @@ document.getElementById("fileIn").addEventListener("change", e=>{
         semStart:j.semStart||j.start_date||DATA.semStart, semEnd:j.semEnd||j.end_date||DATA.semEnd,
         periods:p, lessons:j.lessons.map(l=>[l.weekday, l.period, l["class"]||l.cls||""]),
         holidays:j.holidays||DATA.holidays };
+      Object.keys(DEFAULT_DATA.periods).forEach(function(k){ if(!DATA.periods[k]) DATA.periods[k] = DEFAULT_DATA.periods[k]; });
       OVR = {}; HIST = [];
       if(window._impClear){ TODOS = []; RANGES = []; }
       saveAll();
@@ -626,12 +630,13 @@ function renderWeek(){
   const periods = Object.keys(DATA.periods).map(Number).sort((a,b)=>a-b);
   const tWd = (today.getDay()>=1&&today.getDay()<=5) ? today.getDay() : -1;
   const sameWeek = dstr(mon)==dstr(mondayOf(today));
+  const vacation = [1,2,3,4,5].every(function(i){ const d = new Date(mon); d.setDate(mon.getDate()+i-1); return !inSemester(d); });
   let h = `<div class='wnav'>
     <button aria-label="上一周" onclick="weekShift(-1)">‹</button>
-    <b>${mon.getMonth()+1}月${mon.getDate()}日 – ${sun.getMonth()+1}月${sun.getDate()}日${sameWeek?"（本周）":""}</b>
+    <b>${mon.getMonth()+1}月${mon.getDate()}日 – ${sun.getMonth()+1}月${sun.getDate()}日${sameWeek?"（本周）":""}${vacation?" · 假期":""}</b>
     <button aria-label="下一周" onclick="weekShift(1)">›</button>
     <button aria-label="撤销上一步调课" onclick="undoLast()" ${HIST.length?"":"disabled style=\"opacity:.4\""}>撤销</button></div>
-    <div id='weekGrid'><div class='whd'>节次</div>`;
+    <div id='weekGrid' class="${vacation?"vacation":""}"><div class='whd'>节次</div>`;
   for(let w=1;w<=7;w++){
     const dte = new Date(mon); dte.setDate(mon.getDate()+w-1);
     h += `<div class="whd${w==tWd?" today":""}">${sameWeek&&w==tWd?"今天":(w<=5?"周":"")}${WD[w-1]}<small>${dte.getMonth()+1}/${dte.getDate()}</small></div>`;
@@ -652,7 +657,7 @@ function renderWeek(){
             </div>`;
     }
   });
-  h += `</div><div class='whint' id='weekHint'>点课程块选中，再点空格完成调课；也可直接按住拖动</div>`;
+  h += `</div>${vacation?"<div class='vacation-banner'>假期周 · 以下为固定课表模板（弱化显示），如需补课可直接拖动调课</div>":""}<div class='whint' id='weekHint'>点课程块选中，再点空格完成调课；也可直接按住拖动</div>`;
   document.getElementById("weekHost").innerHTML = h;
   document.getElementById("weekHost").style.display = "";
   bindWeekGestures();
