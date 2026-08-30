@@ -685,6 +685,11 @@ function clearPick(){ pick = null; wkDrag = null;
   document.querySelectorAll(".wcell.selpick,.wcell.pick,.wcell.lift").forEach(c=>c.classList.remove("selpick","pick","lift"));
   const h = document.getElementById("weekHint"); if(h) h.textContent = "点课程块选中，再点空格完成调课；也可直接按住拖动";
 }
+function cellFreeOnDay(c){
+  // 目标格是否可落：看该日期当天实际课程（模板/未调走的课算占位，调出/空白算空）
+  const ds = c.dataset.date, p = +c.dataset.p;
+  return !lessonsOn(pdate(ds)).some(function(l){ return l.p==p; });
+}
 function bindWeekGestures(){
   const grid = document.getElementById("weekGrid"); if(!grid) return;
   const cellAt = (x,y)=>{ const el = document.elementFromPoint(x,y); return el && el.classList.contains("wcell") ? el : null; };
@@ -721,7 +726,7 @@ function bindWeekGestures(){
     wkDrag.src.classList.add("lift");
     document.querySelectorAll(".wcell.pick").forEach(c=>c.classList.remove("pick"));
     const t = cellAt(x,y);
-    if(t && t!==wkDrag.src && (!t.classList.contains("has") || t.classList.contains("lift"))) t.classList.add("pick");
+    if(t && t!==wkDrag.src && cellFreeOnDay(t)) t.classList.add("pick");
   }
   function end(e,x,y){
     // 周课表网格内的一切按下都消费掉，不冒泡到 main 的 swipeEnd（避免误翻周）
@@ -734,7 +739,7 @@ function bindWeekGestures(){
     if(!d.moved){                       // 未移动 = 点选
       if(pick && pick.el===d.src){ clearPick(); return; }
       if(pick){
-        if(d.src.dataset.cls || d.src.classList.contains("has")){ toast("目标格子已有课"); return; }
+        if(!cellFreeOnDay(d.src)){ toast("该日期当天这个节次已有课"); return; }
         const f = pick; clearPick(); openWeekMoveSheet(f, d.src); return;
       }
       if(d.src.classList.contains("lift")){ toast("这节课已调出，点它的落点格子可调回"); return; }
@@ -745,7 +750,7 @@ function bindWeekGestures(){
       return;
     }
     const t = cellAt(x,y);              // 拖动
-    if(t && t!==d.src && (!t.classList.contains("has") || t.classList.contains("lift")))
+    if(t && t!==d.src && cellFreeOnDay(t))
       openWeekMoveSheet({ wd:+d.src.dataset.wd, p:+d.src.dataset.p, cls:d.src.dataset.cls, date:d.src.dataset.date }, t);
     else if(t===d.src) clearPick();
   }
