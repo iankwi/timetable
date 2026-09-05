@@ -31,6 +31,13 @@
   /* FullCalendar 适配 */
   #cal { background:#ffffff; border-radius:16px; padding:6px; height:calc(100% - 10px); box-shadow:0 2px 14px rgba(87,64,28,.07); }
   /* Timeblocks 式宽松月格：大日期数字、事件为小色条、行高撑满 */
+  .staff-card { background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:8px; box-shadow:0 1px 6px rgba(87,64,28,.05); }
+  .staff-card .cname { font-size:15px; font-weight:600; color:#292524; }
+  .staff-search { width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:10px; }
+  .staff-sect { font-size:13px; color:#888; margin:14px 4px 8px; }
+  .staff-tabs { display:flex; gap:8px; margin-bottom:10px; }
+  .staff-tabs button { flex:1; padding:9px; border:none; border-radius:10px; background:#f0ede4; color:#66707a; font-size:13px; font-weight:600; }
+  .staff-tabs button.on { background:var(--green); color:#fff; }
   .fc .fc-daygrid-day-number { font-size:15px; font-weight:500; padding:6px 8px; color:#3a4046; }
   .fc .fc-scrollgrid-section-header td, .fc .fc-col-header-cell { border:none; }
   .fc .fc-col-header-cell-cushion { color:#999; font-weight:400; }
@@ -144,12 +151,15 @@
   <button onclick="openImportSheet()">导入课表</button>
   <button onclick="openSettingsSheet()">设置</button>
   <input type="file" id="fileIn" accept=".json,application/json">
+  <input type="file" id="fileStaff" accept=".json,application/json">
 </header>
 <main id="main"></main>
+<div id="staffHost" style="display:none; flex:1; overflow:auto; padding:8px 6px 12px;"></div>
 <nav>
   <button id="tabToday" class="on">今天</button>
   <button id="tabWeek">周课表</button>
   <button id="tabMonth">月历</button>
+  <button id="tabStaff">任课</button>
 </nav>
 <button class="fab" aria-label="添加日程任务" onclick="openDaySheet(today)">+</button>
 <div id="toast"></div>
@@ -178,7 +188,435 @@ Object.keys(DEFAULT_DATA.periods).forEach(k=>{ if(!DATA.periods[k]) DATA.periods
 if(!DATA.holidays) DATA.holidays = DEFAULT_DATA.holidays;
 let OVR  = JSON.parse(localStorage.getItem("tt2_ovr") || "{}"); // 每日期完整课程覆盖 { "2026-09-02":[{p,cls,adj}] }
 let HIST = JSON.parse(localStorage.getItem("tt2_hist") || "[]"); // 撤销栈（OVR 快照）
-let TODOS = JSON.parse(localStorage.getItem("tt2_todos") || "[]");   // {id,date,text,done,type:'task'|'memo'}
+let TODOS = JSON.parse(localStorage.getItem("tt2_todos") || "[]");
+const DEFAULT_STAFF = {
+ "year": "2026-2027学年第一学期",
+ "school": "西天尾中心小学",
+ "classes": [
+  {
+   "grade": 1,
+   "cls": 1,
+   "name": "一(1)",
+   "head": "郭美仙",
+   "assist": "杨晓敏",
+   "chinese": "郭美仙/林丽",
+   "math": "杨晓敏",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 2,
+   "name": "一(2)",
+   "head": "林怡",
+   "assist": "杨晓敏",
+   "chinese": "林怡",
+   "math": "杨晓敏",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 3,
+   "name": "一(3)",
+   "head": "吴剑花",
+   "assist": "詹静",
+   "chinese": "詹静",
+   "math": "吴剑花",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 4,
+   "name": "一(4)",
+   "head": "张子琳",
+   "assist": "吴剑花",
+   "chinese": "张子琳",
+   "math": "吴剑花",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 5,
+   "name": "一(5)",
+   "head": "刘黎儿",
+   "assist": "何灵",
+   "chinese": "刘黎儿",
+   "math": "蔡清清",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 6,
+   "name": "一(6)",
+   "head": "朱淑钗",
+   "assist": "蔡清清",
+   "chinese": "朱淑钗",
+   "math": "蔡清清",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 1,
+   "name": "二(1)",
+   "head": "李丽钦",
+   "assist": "宋梅峰",
+   "chinese": "李丽钦",
+   "math": "宋梅峰",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 2,
+   "name": "二(2)",
+   "head": "宋梅峰",
+   "assist": "柯荔香",
+   "chinese": "柯荔香",
+   "math": "宋梅峰",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 3,
+   "name": "二(3)",
+   "head": "姚华美",
+   "assist": "林丽娇",
+   "chinese": "林丽娇",
+   "math": "林媛",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 4,
+   "name": "二(4)",
+   "head": "林媛",
+   "assist": "黄惠花",
+   "chinese": "黄惠花",
+   "math": "林媛",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 5,
+   "name": "二(5)",
+   "head": "姚丽娴",
+   "assist": "林丽青",
+   "chinese": "姚丽娴",
+   "math": "张艳丰",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 6,
+   "name": "二(6)",
+   "head": "陈静",
+   "assist": "林凡凡",
+   "chinese": "陈静",
+   "math": "方振宇",
+   "info": null
+  },
+  {
+   "grade": 3,
+   "cls": 1,
+   "name": "三(1)",
+   "head": "胡昀青",
+   "assist": "翁群英",
+   "chinese": "翁群英",
+   "math": "胡昀青",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 2,
+   "name": "三(2)",
+   "head": "任淑萍",
+   "assist": "陈凤玉",
+   "chinese": "任淑萍",
+   "math": "王琪芳",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 3,
+   "name": "三(3)",
+   "head": "陈桂英",
+   "assist": "许倩",
+   "chinese": "陈桂英",
+   "math": "许倩",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 4,
+   "name": "三(4)",
+   "head": "许倩",
+   "assist": "陈婉清",
+   "chinese": "林立芳",
+   "math": "许倩",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 5,
+   "name": "三(5)",
+   "head": "林燕飞",
+   "assist": "谢丽晴",
+   "chinese": "林燕飞",
+   "math": "谢丽晴",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 6,
+   "name": "三(6)",
+   "head": "林佩雯",
+   "assist": "黄斌",
+   "chinese": "黄斌",
+   "math": "林佩雯",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 4,
+   "cls": 1,
+   "name": "四(1)",
+   "head": "姚慧霞",
+   "assist": "吴静怡",
+   "chinese": "姚慧霞",
+   "math": "陈群",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 2,
+   "name": "四(2)",
+   "head": "陈梦婷",
+   "assist": "王晓博",
+   "chinese": "陈梦婷",
+   "math": "王晓博",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 3,
+   "name": "四(3)",
+   "head": "朱黄娟",
+   "assist": "陈群",
+   "chinese": "朱黄娟",
+   "math": "陈群",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 4,
+   "name": "四(4)",
+   "head": "王凡",
+   "assist": "林秋妹",
+   "chinese": "王凡",
+   "math": "林秋妹",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 5,
+   "name": "四(5)",
+   "head": "王晓博",
+   "assist": "陈荔钦",
+   "chinese": "陈荔钦",
+   "math": "王晓博",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 6,
+   "name": "四(6)",
+   "head": "卓海威",
+   "assist": "许艳丹",
+   "chinese": "许艳丹",
+   "math": "卓海岚",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 7,
+   "name": "四(7)",
+   "head": "王彩凤",
+   "assist": "方红",
+   "chinese": "方红",
+   "math": "林秋妹",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 8,
+   "name": "四(8)",
+   "head": "刘丹霞",
+   "assist": "张晶晶",
+   "chinese": "刘丹霞",
+   "math": "陈春辉",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 1,
+   "name": "五(1)",
+   "head": "曾敏媛",
+   "assist": "林丽琴",
+   "chinese": "曾敏媛",
+   "math": "林丽琴",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 2,
+   "name": "五(2)",
+   "head": "徐斐林",
+   "assist": "蔡慧丹",
+   "chinese": "徐斐林",
+   "math": "蔡慧丹",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 3,
+   "name": "五(3)",
+   "head": "林琼",
+   "assist": "徐丽生",
+   "chinese": "徐丽生",
+   "math": "徐丽生",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 4,
+   "name": "五(4)",
+   "head": "杨晨露",
+   "assist": "庄丽红",
+   "chinese": "杨晨露",
+   "math": "庄丽红",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 5,
+   "name": "五(5)",
+   "head": "连小白",
+   "assist": "黄汇丰",
+   "chinese": "连小白",
+   "math": "黄汇丰",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 6,
+   "name": "五(6)",
+   "head": "刘一凡",
+   "assist": "李霞",
+   "chinese": "李霞",
+   "math": "刘一凡",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 6,
+   "cls": 1,
+   "name": "六(1)",
+   "head": "方一星",
+   "assist": "陈希晓",
+   "chinese": "方一星",
+   "math": "陈希晓",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 2,
+   "name": "六(2)",
+   "head": "陈华钗",
+   "assist": "刘丽青",
+   "chinese": "刘丽青",
+   "math": "陈华敏",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 3,
+   "name": "六(3)",
+   "head": "肖梅霞",
+   "assist": "黄少斌",
+   "chinese": "肖梅霞",
+   "math": "黄少斌",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 4,
+   "name": "六(4)",
+   "head": "刘蔓菲",
+   "assist": "苏清松",
+   "chinese": "刘蔓菲",
+   "math": "苏清松",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 5,
+   "name": "六(5)",
+   "head": "林岚荣",
+   "assist": "林美秀",
+   "chinese": "林美秀",
+   "math": "林岚荣",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 6,
+   "name": "六(6)",
+   "head": "林清",
+   "assist": "曾丽芬",
+   "chinese": "林清",
+   "math": "曾丽芬",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 7,
+   "name": "六(7)",
+   "head": "林慧媛",
+   "assist": "柯君",
+   "chinese": "林慧媛",
+   "math": "柯君",
+   "info": "郑文娟"
+  }
+ ],
+ "gradeHeads": {
+  "1": {
+   "chinese": "林怡",
+   "math": "杨晓敏"
+  },
+  "2": {
+   "chinese": "李丽钦",
+   "math": "宋梅峰"
+  },
+  "3": {
+   "chinese": "林燕飞",
+   "math": "胡昀青"
+  },
+  "4": {
+   "chinese": "陈梦婷",
+   "math": "陈群"
+  },
+  "5": {
+   "chinese": "曾敏媛",
+   "math": "蔡慧丹"
+  },
+  "6": {
+   "chinese": "陈希晓",
+   "math": "肖梅霞"
+  }
+ },
+ "groupHeads": {
+  "语文": "翁群英",
+  "数学": "曾丽芬",
+  "综合科": "陈欢欢"
+ }
+};
+let STAFF = JSON.parse(localStorage.getItem("tt2_staff") || "null") || DEFAULT_STAFF;   // {id,date,text,done,type:'task'|'memo'}
 let RANGES = JSON.parse(localStorage.getItem("tt2_range") || "[]");  // {id,title,start,end}
 localStorage.removeItem("tt2_adj"); // 旧模型数据废弃
 
@@ -219,6 +657,22 @@ async function scheduleReminders(){
     }
   }catch(e){}
 }
+
+/* 导入任课表 */
+document.getElementById("fileStaff").addEventListener("change", function(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = function(){
+    try{
+      const j = JSON.parse(r.result);
+      if(!Array.isArray(j.classes)) throw 0;
+      STAFF = j; localStorage.setItem("tt2_staff", JSON.stringify(STAFF));
+      toast("任课表已更新：" + j.classes.length + " 个班");
+      if(tab=="staff") renderStaff();
+    }catch(err){ toast("文件格式不对，请导入任课表 JSON"); }
+  };
+  r.readAsText(f); e.target.value = "";
+});
 
 /* 桌面小组件数据：今天+明天（跨天自动接续），含课程/任务/日程/统计 */
 async function writeWidget(){
@@ -451,6 +905,77 @@ function addTodo(){
 }
 
 /* ================= 系统设置 ================= */
+/* ================= 任课信息页 ================= */
+let staffView = "mine";
+function renderStaff(){
+  const host = document.getElementById("staffHost");
+  const teacher = (DATA.teacher||"").trim();
+  let h = `<div class='staff-tabs'>
+    <button class="${staffView=='mine'?'on':''}" onclick="staffView='mine';renderStaff()">我的班级</button>
+    <button class="${staffView=='all'?'on':''}" onclick="staffView='all';renderStaff()">全校查询</button></div>`;
+  if(staffView=="mine"){
+    if(!teacher){
+      h += `<div class='staff-sect'>尚未设置教师姓名</div>
+        <div class='staff-card'><span class='cname'>请先到「设置」填写教师姓名</span>
+        <div style="font-size:12px;color:#999;margin-top:4px">填写后这里会显示你任教的班级及班主任信息</div></div>
+        <div class='row'><button class='b-ok' style='flex:1' onclick='openSettingsSheet()'>去设置</button></div>`;
+    }else{
+      const mine = STAFF.classes.filter(function(c){
+        return [c.info, c.head, c.assist, c.chinese, c.math].some(function(v){ return v && v.indexOf(teacher) >= 0; });
+      });
+      h += `<div class='staff-sect'>${teacher} · 任教 ${mine.length} 个班</div>`;
+      if(!mine.length) h += `<div class='staff-card'><span class='cname'>任课表中未找到你的任课记录</span>
+        <div style="font-size:12px;color:#999;margin-top:4px">确认姓名拼写与任课表一致，或更新任课表数据</div></div>`;
+      mine.forEach(function(c){
+        const roles = [];
+        if(c.info && c.info.indexOf(teacher)>=0) roles.push("信息技术");
+        if(c.head==teacher) roles.push("班主任");
+        if(c.assist==teacher) roles.push("辅导员");
+        if(c.chinese==teacher) roles.push("语文");
+        if(c.math==teacher) roles.push("数学");
+        h += `<div class='staff-card'><span class='cname'>${c.name}</span>
+          <span style="font-size:10px;background:var(--green-l);color:var(--green);border-radius:4px;padding:1px 5px;margin-left:6px">${roles.join("/")}</span>
+          <div style="font-size:13px;color:#555;margin-top:5px">班主任：${c.head}　辅导员：${c.assist}</div>
+          <div style="font-size:12px;color:#999;margin-top:2px">语文：${c.chinese}　数学：${c.math}</div></div>`;
+      });
+    }
+  }else{
+    h += `<input class='staff-search' id='staffQ' placeholder='搜索教师姓名' oninput='renderStaffAll()'>`;
+    h += `<div id='staffAll'></div>`;
+  }
+  host.innerHTML = h;
+  host.style.display = "";
+  if(staffView=="all") renderStaffAll();
+}
+function renderStaffAll(){
+  const q = (document.getElementById("staffQ")||{value:""}).value.trim();
+  const el = document.getElementById("staffAll"); if(!el) return;
+  const grades = {"1":"一年级","2":"二年级","3":"三年级","4":"四年级","5":"五年级","6":"六年级"};
+  let html = "";
+  for(let g=1; g<=6; g++){
+    const list = STAFF.classes.filter(function(c){ return c.grade==g; });
+    html += `<div class='staff-sect'>${grades[g]}</div>`;
+    list.forEach(function(c){
+      const roles = [];
+      if(q){
+        if(c.head==q) roles.push("班主任");
+        if(c.assist==q) roles.push("辅导员");
+        if(c.chinese==q) roles.push("语文");
+        if(c.math==q) roles.push("数学");
+        if(c.info && c.info.indexOf(q)>=0) roles.push("信息技术");
+      }
+      const hl = q && roles.length;
+      html += `<div class='staff-card'${hl?' style="border:2px solid var(--green)"':''}>
+        <span class='cname'>${c.name}</span>
+        ${hl?`<span style="font-size:10px;background:var(--green-l);color:var(--green);border-radius:4px;padding:1px 5px;margin-left:6px">${roles.join("/")}</span>`:""}
+        <div style="font-size:13px;color:#555;margin-top:5px">班主任：${c.head}　辅导员：${c.assist}</div>
+        <div style="font-size:12px;color:#999;margin-top:2px">语文：${c.chinese}　数学：${c.math}${c.info?"　信息技术："+c.info:""}</div></div>`;
+    });
+  }
+  html += `<div class='staff-sect'>教研组长：语文 ${STAFF.groupHeads["语文"]} · 数学 ${STAFF.groupHeads["数学"]} · 综合科 ${STAFF.groupHeads["综合科"]}</div>`;
+  el.innerHTML = html;
+}
+
 /* ================= 系统设置：课表信息编辑 + 数据管理（两组职责分明） ================= */
 function openSettingsSheet(){
   document.querySelectorAll(".mask").forEach(x=>x.remove());
@@ -483,6 +1008,8 @@ function openSettingsSheet(){
       <span style="font-size:13px;color:#66707a">提醒</span>
     </div>
     <div class="row"><button class="b-ok" style="flex:1" onclick="saveRemind()">保存提醒设置</button></div>
+    <div class="note" style="font-size:11px;color:#999;margin:16px 0 8px">④ 任课表数据（每学年变动后导入更新）</div>
+    <div class="row"><button style="flex:1;padding:11px;border:none;border-radius:8px;background:var(--green-l);color:var(--green);font-weight:600" onclick="this.closest('.mask').remove(); document.getElementById('fileStaff').click();">导入任课表</button></div>
     <div class="row"><button class="b-cancel" style="flex:1" onclick="this.closest('.mask').remove()">关闭</button></div>
     <div class="note" style="font-size:11px;color:#999;margin-top:10px">我的课表 v1.3 · 数据仅保存在本机</div></div>`;
   document.body.appendChild(m);
@@ -820,7 +1347,7 @@ function doWeekMove(type, wd, p, toWd, toP, cls, fromDate, toDate){
 }
 
 function setTab(t){
-  ["Today","Week","Month"].forEach(x=>document.getElementById("tab"+x).classList.toggle("on", t.toLowerCase()==x.toLowerCase()));
+  ["Today","Week","Month","Staff"].forEach(x=>document.getElementById("tab"+x).classList.toggle("on", t.toLowerCase()==x.toLowerCase()));
   if(t=="today"){
     renderToday();
     document.getElementById("todayHost").style.display = "";
@@ -830,6 +1357,11 @@ function setTab(t){
     document.getElementById("todayHost").style.display = "none";
     document.getElementById("cal").style.display = "none";
     renderWeek();
+  }else if(t=="staff"){
+    document.getElementById("todayHost").style.display = "none";
+    document.getElementById("weekHost").style.display = "none";
+    document.getElementById("cal").style.display = "none";
+    renderStaff();
   }else{
     document.getElementById("todayHost").style.display = "none";
     document.getElementById("weekHost").style.display = "none";
@@ -843,10 +1375,11 @@ function setTab(t){
 document.getElementById("tabToday").onclick = ()=>setTab("today");
 document.getElementById("tabWeek").onclick = ()=>setTab("week");
 document.getElementById("tabMonth").onclick = ()=>setTab("month");
+document.getElementById("tabStaff").onclick = ()=>setTab("staff");
 
 /* 手机手势：横向滑动主导航（今天/周/月），周视图滑=翻周，月视图滑=翻月 */
 (function(){
-  const ORDER = ["today","week","month"];
+  const ORDER = ["today","week","month","staff"];
   let sx=0, sy=0, src=null, active=false;
   function animSlide(el, fromRight){
     if(!el) return;
@@ -866,6 +1399,8 @@ document.getElementById("tabMonth").onclick = ()=>setTab("month");
       if(src && src.closest && src.closest(".fc-event")) return;
       toRight ? calendar.prev() : calendar.next();
       animSlide(document.getElementById("cal"), !toRight);
+    }else if(tab == "staff"){
+      return;   // 任课页有搜索输入，禁用滑动切页
     }else{
       const i = ORDER.indexOf(tab);
       const n = ORDER[Math.min(ORDER.length-1, Math.max(0, i + (toRight?-1:1)))];

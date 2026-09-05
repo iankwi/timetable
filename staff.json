@@ -1,0 +1,427 @@
+{
+ "year": "2026-2027学年第一学期",
+ "school": "西天尾中心小学",
+ "classes": [
+  {
+   "grade": 1,
+   "cls": 1,
+   "name": "一(1)",
+   "head": "郭美仙",
+   "assist": "杨晓敏",
+   "chinese": "郭美仙/林丽",
+   "math": "杨晓敏",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 2,
+   "name": "一(2)",
+   "head": "林怡",
+   "assist": "杨晓敏",
+   "chinese": "林怡",
+   "math": "杨晓敏",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 3,
+   "name": "一(3)",
+   "head": "吴剑花",
+   "assist": "詹静",
+   "chinese": "詹静",
+   "math": "吴剑花",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 4,
+   "name": "一(4)",
+   "head": "张子琳",
+   "assist": "吴剑花",
+   "chinese": "张子琳",
+   "math": "吴剑花",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 5,
+   "name": "一(5)",
+   "head": "刘黎儿",
+   "assist": "何灵",
+   "chinese": "刘黎儿",
+   "math": "蔡清清",
+   "info": null
+  },
+  {
+   "grade": 1,
+   "cls": 6,
+   "name": "一(6)",
+   "head": "朱淑钗",
+   "assist": "蔡清清",
+   "chinese": "朱淑钗",
+   "math": "蔡清清",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 1,
+   "name": "二(1)",
+   "head": "李丽钦",
+   "assist": "宋梅峰",
+   "chinese": "李丽钦",
+   "math": "宋梅峰",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 2,
+   "name": "二(2)",
+   "head": "宋梅峰",
+   "assist": "柯荔香",
+   "chinese": "柯荔香",
+   "math": "宋梅峰",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 3,
+   "name": "二(3)",
+   "head": "姚华美",
+   "assist": "林丽娇",
+   "chinese": "林丽娇",
+   "math": "林媛",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 4,
+   "name": "二(4)",
+   "head": "林媛",
+   "assist": "黄惠花",
+   "chinese": "黄惠花",
+   "math": "林媛",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 5,
+   "name": "二(5)",
+   "head": "姚丽娴",
+   "assist": "林丽青",
+   "chinese": "姚丽娴",
+   "math": "张艳丰",
+   "info": null
+  },
+  {
+   "grade": 2,
+   "cls": 6,
+   "name": "二(6)",
+   "head": "陈静",
+   "assist": "林凡凡",
+   "chinese": "陈静",
+   "math": "方振宇",
+   "info": null
+  },
+  {
+   "grade": 3,
+   "cls": 1,
+   "name": "三(1)",
+   "head": "胡昀青",
+   "assist": "翁群英",
+   "chinese": "翁群英",
+   "math": "胡昀青",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 2,
+   "name": "三(2)",
+   "head": "任淑萍",
+   "assist": "陈凤玉",
+   "chinese": "任淑萍",
+   "math": "王琪芳",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 3,
+   "name": "三(3)",
+   "head": "陈桂英",
+   "assist": "许倩",
+   "chinese": "陈桂英",
+   "math": "许倩",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 4,
+   "name": "三(4)",
+   "head": "许倩",
+   "assist": "陈婉清",
+   "chinese": "林立芳",
+   "math": "许倩",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 5,
+   "name": "三(5)",
+   "head": "林燕飞",
+   "assist": "谢丽晴",
+   "chinese": "林燕飞",
+   "math": "谢丽晴",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 3,
+   "cls": 6,
+   "name": "三(6)",
+   "head": "林佩雯",
+   "assist": "黄斌",
+   "chinese": "黄斌",
+   "math": "林佩雯",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 4,
+   "cls": 1,
+   "name": "四(1)",
+   "head": "姚慧霞",
+   "assist": "吴静怡",
+   "chinese": "姚慧霞",
+   "math": "陈群",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 2,
+   "name": "四(2)",
+   "head": "陈梦婷",
+   "assist": "王晓博",
+   "chinese": "陈梦婷",
+   "math": "王晓博",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 3,
+   "name": "四(3)",
+   "head": "朱黄娟",
+   "assist": "陈群",
+   "chinese": "朱黄娟",
+   "math": "陈群",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 4,
+   "name": "四(4)",
+   "head": "王凡",
+   "assist": "林秋妹",
+   "chinese": "王凡",
+   "math": "林秋妹",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 5,
+   "name": "四(5)",
+   "head": "王晓博",
+   "assist": "陈荔钦",
+   "chinese": "陈荔钦",
+   "math": "王晓博",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 6,
+   "name": "四(6)",
+   "head": "卓海威",
+   "assist": "许艳丹",
+   "chinese": "许艳丹",
+   "math": "卓海岚",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 7,
+   "name": "四(7)",
+   "head": "王彩凤",
+   "assist": "方红",
+   "chinese": "方红",
+   "math": "林秋妹",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 4,
+   "cls": 8,
+   "name": "四(8)",
+   "head": "刘丹霞",
+   "assist": "张晶晶",
+   "chinese": "刘丹霞",
+   "math": "陈春辉",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 1,
+   "name": "五(1)",
+   "head": "曾敏媛",
+   "assist": "林丽琴",
+   "chinese": "曾敏媛",
+   "math": "林丽琴",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 2,
+   "name": "五(2)",
+   "head": "徐斐林",
+   "assist": "蔡慧丹",
+   "chinese": "徐斐林",
+   "math": "蔡慧丹",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 3,
+   "name": "五(3)",
+   "head": "林琼",
+   "assist": "徐丽生",
+   "chinese": "徐丽生",
+   "math": "徐丽生",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 4,
+   "name": "五(4)",
+   "head": "杨晨露",
+   "assist": "庄丽红",
+   "chinese": "杨晨露",
+   "math": "庄丽红",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 5,
+   "name": "五(5)",
+   "head": "连小白",
+   "assist": "黄汇丰",
+   "chinese": "连小白",
+   "math": "黄汇丰",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 5,
+   "cls": 6,
+   "name": "五(6)",
+   "head": "刘一凡",
+   "assist": "李霞",
+   "chinese": "李霞",
+   "math": "刘一凡",
+   "info": "陈婉清"
+  },
+  {
+   "grade": 6,
+   "cls": 1,
+   "name": "六(1)",
+   "head": "方一星",
+   "assist": "陈希晓",
+   "chinese": "方一星",
+   "math": "陈希晓",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 2,
+   "name": "六(2)",
+   "head": "陈华钗",
+   "assist": "刘丽青",
+   "chinese": "刘丽青",
+   "math": "陈华敏",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 3,
+   "name": "六(3)",
+   "head": "肖梅霞",
+   "assist": "黄少斌",
+   "chinese": "肖梅霞",
+   "math": "黄少斌",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 4,
+   "name": "六(4)",
+   "head": "刘蔓菲",
+   "assist": "苏清松",
+   "chinese": "刘蔓菲",
+   "math": "苏清松",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 5,
+   "name": "六(5)",
+   "head": "林岚荣",
+   "assist": "林美秀",
+   "chinese": "林美秀",
+   "math": "林岚荣",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 6,
+   "name": "六(6)",
+   "head": "林清",
+   "assist": "曾丽芬",
+   "chinese": "林清",
+   "math": "曾丽芬",
+   "info": "郑文娟"
+  },
+  {
+   "grade": 6,
+   "cls": 7,
+   "name": "六(7)",
+   "head": "林慧媛",
+   "assist": "柯君",
+   "chinese": "林慧媛",
+   "math": "柯君",
+   "info": "郑文娟"
+  }
+ ],
+ "gradeHeads": {
+  "1": {
+   "chinese": "林怡",
+   "math": "杨晓敏"
+  },
+  "2": {
+   "chinese": "李丽钦",
+   "math": "宋梅峰"
+  },
+  "3": {
+   "chinese": "林燕飞",
+   "math": "胡昀青"
+  },
+  "4": {
+   "chinese": "陈梦婷",
+   "math": "陈群"
+  },
+  "5": {
+   "chinese": "曾敏媛",
+   "math": "蔡慧丹"
+  },
+  "6": {
+   "chinese": "陈希晓",
+   "math": "肖梅霞"
+  }
+ },
+ "groupHeads": {
+  "语文": "翁群英",
+  "数学": "曾丽芬",
+  "综合科": "陈欢欢"
+ }
+}
