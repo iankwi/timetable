@@ -154,7 +154,6 @@
   <input type="file" id="fileStaff" accept=".json,application/json">
 </header>
 <main id="main"></main>
-<div id="staffHost" style="display:none; flex:1; overflow:auto; padding:8px 6px 12px;"></div>
 <nav>
   <button id="tabToday" class="on">今天</button>
   <button id="tabWeek">周课表</button>
@@ -1165,7 +1164,7 @@ function delRange(id){
 const main = document.getElementById("main");
 const today = new Date();
 let tab = "today";
-main.innerHTML = `<div id="todayHost" style="display:none"></div><div id="weekHost" style="display:none"></div><div id="cal" style="display:none"></div>`;
+main.innerHTML = `<div id="todayHost" style="display:none"></div><div id="weekHost" style="display:none"></div><div id="cal" style="display:none"></div><div id="staffHost" style="display:none"></div>`;
 /* ================= 周视图：节次行网格 ================= */
 let weekOff = 0;              // 相对本周的周偏移
 function mondayOf(d){ const m=new Date(d); const k=(m.getDay()+6)%7; m.setDate(m.getDate()-k); return m; }
